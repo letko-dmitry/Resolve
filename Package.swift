@@ -19,8 +19,7 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "git@github.com:apple/swift-syntax.git", from: "509.0.0"),
-        .package(url: "git@github.com:realm/SwiftLint.git", from: "0.53.0")
+        .package(url: "git@github.com:apple/swift-syntax.git", from: "509.0.0")
     ],
     targets: [
         .macro(
@@ -32,9 +31,6 @@ let package = Package(
             path: "Sources/Macros",
             swiftSettings: [
                 .strictConcurrency
-            ],
-            plugins: [
-                .plugin(name: "SwiftLintPlugin", package: "SwiftLint")
             ]
         ),
         .target(
@@ -45,9 +41,6 @@ let package = Package(
             path: "Sources/Resolve",
             swiftSettings: [
                 .strictConcurrency
-            ],
-            plugins: [
-                .plugin(name: "SwiftLintPlugin", package: "SwiftLint")
             ]
         ),
         .executableTarget(

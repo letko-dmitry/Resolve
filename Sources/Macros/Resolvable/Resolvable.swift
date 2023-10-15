@@ -1,9 +1,10 @@
+import Foundation
 import SwiftDiagnostics
+import SwiftParserDiagnostics
 import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 import SwiftSyntaxMacroExpansion
-import Foundation
 
 public enum Resolvable: MemberMacro {
     enum ParseError: String, Error {
@@ -21,16 +22,21 @@ public enum Resolvable: MemberMacro {
         let dependencies = functions.compactMap { function in
             ResolvableBuilder.Dependency(function: function, in: context)
         }
-      
+        
         guard !dependencies.isEmpty else {
             return ResolvableBuilder(declaration: declaration).build()
         }
         
         ResolvableValidation(dependencies: dependencies).validate(in: context)
         
+        let arguments = node.arguments?.as(LabeledExprListSyntax.self)?.compactMap { $0.as(LabeledExprSyntax.self) }
+        
+        let sortExpression = arguments?.first { $0.label?.text == "sort" }?.expression.as(BooleanLiteralExprSyntax.self)
+        let sort = (sortExpression?.literal.text).flatMap(Bool.init(_:)) ?? true
+        
         return ResolvableBuilder(
             declaration: declaration,
-            dependencies: dependencies
+            dependencies: sort ? dependencies.sorted(using: SortDescriptor(\.name.text)) : dependencies
         ).build()
     }
 }
@@ -38,38 +44,77 @@ public enum Resolvable: MemberMacro {
 // MARK: - Dependency
 private extension ResolvableBuilder.Dependency {
     init?(function declaration: FunctionDeclSyntax, in context: some MacroExpansionContext) {
-        guard let options = Options(attributes: declaration.attributes) else { return nil }
+        guard let parameters = Parameters(attributes: declaration.attributes, in: context) else { return nil }
         guard let function = Function(function: declaration, in: context) else { return nil }
         
         self.init(
             function: function,
-            options: options,
+            parameters: parameters,
             node: declaration
         )
     }
 }
 
-// MARK: - Dependency.Options
-private extension ResolvableBuilder.Dependency.Options {
-    init?(attributes: AttributeListSyntax) {
-        let attributes = attributes.as(AttributeListSyntax.self)?.compactMap { $0.as(AttributeSyntax.self) }
-        let attribute = attributes?.first {
-            $0.attributeName.as(IdentifierTypeSyntax.self)?.name.text == "Register"
+// MARK: - Dependency.Parameters
+private extension ResolvableBuilder.Dependency.Parameters {
+    struct Registrable {
+        let syntax: AttributeSyntax
+        let transient: Bool
+    }
+    
+    init?(attributes: AttributeListSyntax, in context: some MacroExpansionContext) {
+        let registrables: [Registrable]? = attributes.as(AttributeListSyntax.self)?.compactMap { element in
+            guard let syntax = element.as(AttributeSyntax.self) else { return nil }
+            guard let name = syntax.attributeName.as(IdentifierTypeSyntax.self)?.name.text else { return nil }
+            
+            switch name {
+            case "Register": return Registrable(syntax: syntax, transient: false)
+            case "RegisterTransient": return Registrable(syntax: syntax, transient: true)
+            default: return nil
+            }
+        }
+        guard let registrables, let registrable = registrables.first else { return nil }
+        
+        if registrables.count > 1 {
+            let message = MacroExpansionWarningMessage("We do not expect more that one attribute – the first one is taken")
+            let drop = Set(registrables.dropFirst().map { $0.syntax })
+            let new = attributes.filter { element in
+                if let attribute = element.as(AttributeSyntax.self) {
+                    return !drop.contains(attribute)
+                } else {
+                    return false
+                }
+            }
+            
+            let diagnostic = Diagnostic(
+                node: registrable.syntax,
+                message: message,
+                highlights: drop.map { Syntax($0) },
+                fixIt: .init(
+                    message: MacroExpansionFixItMessage("Remove unused attributes"),
+                    changes: [
+                        .replace(
+                            oldNode: Syntax(attributes),
+                            newNode: Syntax(new)
+                        )
+                    ]
+                )
+            )
+            
+            context.diagnose(diagnostic)
         }
         
-        guard let attribute else { return nil }
-        
-        let arguments = attribute.arguments?.as(LabeledExprListSyntax.self)?.compactMap { $0.as(LabeledExprSyntax.self) }
+        let arguments = registrable.syntax.arguments?.as(LabeledExprListSyntax.self)?.compactMap { $0.as(LabeledExprSyntax.self) }
         
         let nameExpression = arguments?.first { $0.label?.text == "name" }?.expression.as(StringLiteralExprSyntax.self)
         let name = nameExpression?.representedLiteralValue
         
-        let transientExpression = arguments?.first { $0.label?.text == "transient" }?.expression.as(BooleanLiteralExprSyntax.self)
-        let transient = (transientExpression?.literal.text).flatMap(Bool.init(_:))
+        let optionsExpression = arguments?.first { $0.label?.text == "options" }?.expression
         
         self.init(
             name: name.map(TokenSyntax.init(stringLiteral:)),
-            transient: transient ?? false
+            options: optionsExpression,
+            transient: registrable.transient
         )
     }
 }
@@ -116,10 +161,25 @@ private extension ResolvableBuilder.Dependency.Function {
         
         guard let type, parameterOk else { return nil }
         
+        let concurrent: Bool
+        
+        if function.signature.effectSpecifiers?.asyncSpecifier != nil {
+            concurrent = true
+        } else {
+            let attributeNameMainActor = String(describing: MainActor.self)
+            let attributes = function.attributes.as(AttributeListSyntax.self)?.compactMap { $0.as(AttributeSyntax.self) }
+            
+            let hasAttributeNameMainActor = attributes?.contains { attribute in
+                attribute.attributeName.as(IdentifierTypeSyntax.self)?.name.text == attributeNameMainActor
+            }
+            
+            concurrent = hasAttributeNameMainActor ?? false
+        }
+        
         self.init(
             name: function.name,
             parameter: parameter,
-            concurrent: function.signature.effectSpecifiers?.asyncSpecifier != nil,
+            concurrent: concurrent,
             throwable: function.signature.effectSpecifiers?.throwsSpecifier != nil,
             type: type
         )

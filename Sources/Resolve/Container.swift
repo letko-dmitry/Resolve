@@ -1,53 +1,57 @@
 //
 //  Container.swift
+//  
 //
-//
-//  Created by Dzmitry Letko on 01/10/2023.
+//  Created by Dzmitry Letko on 14/10/2023.
 //
 
 import Foundation
 
-public actor Container {
-    private var tasks: [String: Any] = [:]
+final class Container: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [String: Any] = [:]
     
-    public init() { }
-    
-    public func register<V: Sendable>(for name: String, _ dependency: @escaping @Sendable () async throws -> V) async throws -> V {
-        return try await findOrCreate(name: name) {
-            Task(operation: dependency)
-        }.value
+    func findOrCreate<V>(name: String, value: () -> V) -> V {
+        lock.withLock {
+            if let value = values[name] as? V {
+                return value
+            }
+            
+            let value = value()
+            
+            values[name] = value
+            
+            return value
+        }
     }
-    
-    public func register<V: Sendable>(for name: String, _ dependency: @escaping @Sendable () throws -> V) async throws -> V {
-        return try await findOrCreate(name: name) {
-            Task(operation: dependency)
-        }.value
-    }
-    
-    public func register<V: Sendable>(for name: String, _ dependency: @escaping @Sendable () async -> V) async -> V {
-        return await findOrCreate(name: name) {
-            Task(operation: dependency)
-        }.value
-    }
-    
-    public func register<V: Sendable>(for name: String, _ dependency: @escaping @Sendable () -> V) async -> V {
-        return await findOrCreate(name: name) {
-            Task(operation: dependency)
-        }.value
+}
+
+extension Container {
+    static func global(for identifier: some Hashable) -> Container {
+        Global.shared.container(for: identifier)
     }
 }
 
 // MARK: - private
 private extension Container {
-    func findOrCreate<T>(name: String, task: () -> T) -> T {
-        if let task = tasks[name] as? T {
-            return task
+    final class Global {
+        private let lock = NSLock()
+        private var containers: [AnyHashable: Container] = [:]
+        
+        private init() { }
+        
+        static let shared = Global()
+        
+        func container(for identifier: AnyHashable) -> Container {
+            lock.withLock {
+                if let container = containers[identifier] { return container }
+                
+                let container = Container()
+                
+                containers[identifier] = container
+                
+                return container
+            }
         }
-        
-        let task = task()
-        
-        tasks[name] = task
-        
-        return task
     }
 }

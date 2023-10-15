@@ -42,12 +42,12 @@ final class ResolvableTests: XCTestCase {
                 }
 
                 struct Resolver: Sendable {
-                    private let _container = Resolve.Container()
+                    private let _registrar = Resolve.Registrar(for: Container.self)
                     private let _resolvable: Container
 
                     var database: Database {
                         get async throws {
-                            try await _container.register(for: "database") {
+                            try await _registrar.register(for: "database") {
                                 try await _resolvable.database()
                             }
                         }

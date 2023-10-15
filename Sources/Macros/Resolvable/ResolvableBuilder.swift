@@ -10,9 +10,9 @@ import SwiftSyntax
 import SwiftSyntaxMacros
 
 struct ResolvableBuilder {
-    struct Container {
-        let name: TokenSyntax = "container"
-        let type: TokenSyntax = "Resolve.Container"
+    struct Registrar {
+        let name: TokenSyntax = "registrar"
+        let type: TokenSyntax = "Resolve.\(Registrar.self)"
     }
     
     struct Declaration {
@@ -21,8 +21,9 @@ struct ResolvableBuilder {
     }
     
     struct Dependency {
-        struct Options {
+        struct Parameters {
             let name: TokenSyntax?
+            let options: ExprSyntax?
             let transient: Bool
         }
         
@@ -39,11 +40,11 @@ struct ResolvableBuilder {
         }
         
         let function: Function
-        let options: Options
+        let parameters: Parameters
         let node: FunctionDeclSyntax
         
         var name: TokenSyntax {
-            options.name ?? function.name
+            parameters.name ?? function.name
         }
     }
     
@@ -54,7 +55,7 @@ struct ResolvableBuilder {
     
     enum Kind {
         case empty
-        case dependencies(_ dependencies: Dependencies, container: Container)
+        case dependencies(_ dependencies: Dependencies, registrar: Registrar = .init())
     }
     
     let declaration: Declaration
@@ -63,11 +64,11 @@ struct ResolvableBuilder {
     init(declaration: Declaration, dependencies: [Dependency]) {
         let dependencies = Dependencies(
             all: dependencies,
-            nontransient: dependencies.filter { !$0.options.transient }
+            nontransient: dependencies.filter { !$0.parameters.transient }
         )
         
         self.declaration = declaration
-        self.kind = .dependencies(dependencies, container: .init())
+        self.kind = .dependencies(dependencies)
     }
     
     init(declaration: Declaration) {
@@ -123,7 +124,7 @@ private extension ResolvableBuilder {
             }
             """
             
-        case let .dependencies(dependencies, container):
+        case let .dependencies(dependencies, registrar):
             let getters = dependencies.all.map { dependency in
                 let function = dependency.function
                 let functionParameters: String
@@ -141,10 +142,18 @@ private extension ResolvableBuilder {
                 let functionEffect = call(throwable: function.throwable, concurrent: function.concurrent)
                 let functionCall = "\(functionEffect) _\(declaration.name).\(function.name)(\(functionParameters))".trimmingCharacters(in: .whitespaces)
 
+                let register: String
+                
+                if let options = dependency.parameters.options {
+                    register = "register(for: \"\(dependency.name)\", options: \(options))"
+                } else {
+                    register = "register(for: \"\(dependency.name)\")"
+                }
+                
                 return """
                 var \(dependency.name): \(dependency.function.type) {
                     get \(effect(throwable: dependency.function.throwable)) {
-                        \(call(throwable: dependency.function.throwable)) _\(container.name).register(for: \"\(dependency.name)\") {
+                        \(call(throwable: dependency.function.throwable)) _\(registrar.name).\(register) {
                             \(functionCall)
                         }
                     }
@@ -161,7 +170,7 @@ private extension ResolvableBuilder {
             
             return """
             struct Resolver: Sendable {
-                private let _\(container.name) = \(container.type)()
+                private let _\(registrar.name) = \(registrar.type)(for: \(declaration.type).self)
                 private let _\(declaration.name): \(declaration.type)
                 \n\(raw: getters.joined(separator: "\n\n"))
             
