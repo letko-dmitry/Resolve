@@ -26,48 +26,59 @@ struct ResolverBuilder {
     let registrar: Registrar = .init()
     
     func build() -> DeclSyntax {
-        if registrables.all.isEmpty && performables.all.isEmpty {
+        func resolver(_ body: () -> DeclSyntax) -> DeclSyntax {
             return """
             struct Resolver: Sendable {
-                \(containerVariable())
-            
-                \(resolverInit())
-            
-                func resolve() -> Resolved {
-                    return .init()
-                }
+                \(body())
             }
             """
-        } else {
-            let arguments = registrables.nontransient.map { dependency in
-                "\(dependency.name): \(dependency.name)"
+        }
+        
+        return resolver {
+            if registrables.all.isEmpty && performables.all.isEmpty {
+                return """
+                    \(containerVariable())
+                
+                    \(resolverInit())
+                            
+                    \(resolve())
+                """
+            } else if registrables.all.isEmpty {
+                return """
+                    \(registrarVariable())
+                    \(containerVariable())
+
+                    \(resolverInit())
+
+                    \(performableMethods())
+                
+                    \(resolve())
+                """
+            } else if performables.all.isEmpty {
+                return """
+                    \(registrarVariable())
+                    \(containerVariable())
+
+                    \(registrableGetters())
+                
+                    \(resolverInit())
+
+                    \(resolve())
+                """
+            } else {
+                return """
+                    \(registrarVariable())
+                    \(containerVariable())
+
+                    \(registrableGetters())
+                
+                    \(resolverInit())
+
+                    \(performableMethods())
+                
+                    \(resolve())
+                """
             }
-            
-            let throwableResolved = registrables.nontransient.contains { $0.function.throwable }
-            let throwableResolve = throwableResolved || performables.all.contains { $0.function.throwable }
-            
-            return """
-            struct Resolver: Sendable {
-                \(registrarVariable())
-                \(containerVariable())
-
-                \(registrableGetters())
-            
-                \(resolverInit())
-
-                \(performableMethods())
-            
-                func resolve() async \(raw: throwableResolve ? "throws " : "")-> Resolved {
-                    \(registrableVariables())
-
-                    \(performableTasks())
-            
-                    return \(raw: throwableResolved ? "try " : "")await .init(
-                        \(raw: arguments.joined(separator: ",\n"))
-                    )
-                }
-            }
-            """
         }
     }
 }
@@ -201,7 +212,6 @@ private extension ResolverBuilder {
     @CodeBlockItemListBuilder
     func performableTasks() -> CodeBlockItemListSyntax {
         if !performables.all.isEmpty {
-            let throwable = performables.all.contains { $0.function.throwable }
             let tasks = CodeBlockItemListSyntax {
                 for performable in performables.all {
                     if performable.function.throwable {
@@ -212,7 +222,7 @@ private extension ResolverBuilder {
                 }
             }
             
-            if throwable {
+            if throwablePerformables {
                 """
                 try await withThrowingDiscardingTaskGroup { group in
                     \(tasks)
@@ -226,5 +236,72 @@ private extension ResolverBuilder {
                 """
             }
         }
+    }
+    
+    @CodeBlockItemListBuilder
+    func resolverReturn() -> CodeBlockItemListSyntax {
+        if registrables.nontransient.isEmpty {
+            """
+            return .init()
+            """
+        } else {
+            let arguments = registrables.nontransient.map { dependency in
+                "\(dependency.name): \(dependency.name)"
+            }
+            
+            """
+            return \(raw: throwableRegistrables ? "try " : "")await .init(
+                \(raw: arguments.joined(separator: ",\n"))
+            )
+            """
+        }
+    }
+    
+    @CodeBlockItemListBuilder
+    func resolve() -> CodeBlockItemListSyntax {
+        if registrables.nontransient.isEmpty && performables.all.isEmpty {
+            """
+            func resolver() -> Resolved {
+                \(resolverReturn())
+            }
+            """
+        } else if registrables.nontransient.isEmpty {
+            """
+            func resolve() async \(raw: throwablePerformables ? "throws " : "")-> Resolved {
+                \(performableTasks())
+            
+                \(resolverReturn())
+            }
+            """
+        } else if performables.all.isEmpty {
+            """
+            func resolve() async \(raw: throwableRegistrables ? "throws " : "")-> Resolved {
+                \(registrableVariables())
+            
+                \(resolverReturn())
+            }
+            """
+        } else {
+            """
+            func resolve() async \(raw: (throwablePerformables || throwableRegistrables) ? "throws " : "")-> Resolved {
+                \(registrableVariables())
+            
+                \(performableTasks())
+            
+                \(resolverReturn())
+            }
+            """
+        }
+    }
+}
+
+// MARK: - private
+private extension ResolverBuilder {
+    var throwablePerformables: Bool {
+        performables.all.contains { $0.function.throwable }
+    }
+    
+    var throwableRegistrables: Bool {
+        registrables.nontransient.contains { $0.function.throwable }
     }
 }
