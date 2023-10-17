@@ -10,8 +10,23 @@ import Resolve
 
 @Resolvable
 struct Container {
-    @Register()
-    func database() async throws -> String {
+    @Register
+    func database() async -> String {
         return String()
+    }
+    
+    @Register
+    func network() async -> String {
+        return String()
+    }
+    
+    @Perform
+    func configure() throws {
+        
+    }
+    
+    @Perform
+    func firebase() throws {
+        
     }
 }

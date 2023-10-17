@@ -26,6 +26,7 @@ let package = Package(
             name: "Macros",
             dependencies: [
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                .product(name: "SwiftSyntaxMacroExpansion", package: "swift-syntax"),
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax")
             ],
             path: "Sources/Macros",
@@ -36,7 +37,7 @@ let package = Package(
         .target(
             name: "Resolve",
             dependencies: [
-                "Macros"
+                .target(name: "Macros")
             ],
             path: "Sources/Resolve",
             swiftSettings: [
@@ -46,7 +47,7 @@ let package = Package(
         .executableTarget(
             name: "Playground",
             dependencies: [
-                "Resolve"
+                .target(name: "Resolve")
             ],
             path: "Sources/Playground"
         ),

@@ -13,32 +13,49 @@ import SwiftSyntaxMacros
 import SwiftSyntaxMacroExpansion
 
 struct ResolvableValidation {
-    let dependencies: [ResolvableBuilder.Dependency]
+    let registrables: [Registrable]
+    let performables: [Performable]
     
     func validate(in context: some MacroExpansionContext) {
-        DirectUseReport.make(dependencies).print(in: context)
-        UniquenessReport.make(dependencies).print(in: context)
+        DirectUseReport.make(registrables: registrables, performables: performables).print(in: context)
+        UniquenessReport.make(registrables: registrables, performables: performables).print(in: context)
     }
 }
 
 // MARK: - UniquenessReport
 private extension ResolvableValidation {
     struct UniquenessReport {
+        struct Candidate {
+            let name: TokenSyntax
+            let node: FunctionDeclSyntax
+            
+            init(_ registrable: Registrable) {
+                node = registrable.node
+                name = registrable.name
+            }
+            
+            init(_ performable: Performable) {
+                node = performable.node
+                name = performable.name
+            }
+        }
+        
         struct Case {
-            let first: ResolvableBuilder.Dependency
-            let redeclarations: [ResolvableBuilder.Dependency]
+            let first: Candidate
+            let redeclarations: [Candidate]
         }
         
         let cases: [Case]
         
-        static func make(_ dependencies: [ResolvableBuilder.Dependency]) -> UniquenessReport {
-            let dependenciesByName = Dictionary(grouping: dependencies) { $0.name.text }
-            let cases: [Case] = dependenciesByName.compactMap { _, dependencies in
-                guard let first = dependencies.first, dependencies.count >= 2 else { return nil }
+        static func make(registrables: [Registrable], performables: [Performable]) -> UniquenessReport {
+            let candidates = registrables.map(Candidate.init(_:)) + performables.map(Candidate.init(_:))
+            let candidatesByName = Dictionary(grouping: candidates) { $0.name.text }
+            let cases: [Case] = candidatesByName.compactMap { _, candidates in
+                guard let first = candidates.first, candidates.count >= 2 else { return nil }
                 
                 return Case(
                     first: first,
-                    redeclarations: Array(dependencies.dropFirst())
+                    redeclarations: Array(candidates.dropFirst())
                 )
             }
             
@@ -68,24 +85,43 @@ private extension ResolvableValidation {
 // MARK: - DirectUseReport
 private extension ResolvableValidation {
     struct DirectUseReport {
+        struct Candidate {
+            let name: TokenSyntax
+            let node: FunctionDeclSyntax
+            let concurrent: Bool
+            
+            init(_ registrable: Registrable) {
+                node = registrable.node
+                name = registrable.function.name
+                concurrent = registrable.function.concurrent
+            }
+            
+            init(_ performable: Performable) {
+                node = performable.node
+                name = performable.function.name
+                concurrent = performable.function.concurrent
+            }
+        }
+        
         struct Case {
             struct Misuse {
                 let function: FunctionCallExprSyntax
                 let concurrent: Bool
             }
             
-            let calling: ResolvableBuilder.Dependency
-            let called: ResolvableBuilder.Dependency
+            let calling: Candidate
+            let called: Candidate
             let misuses: [Misuse]
         }
         
         let cases: [Case]
         
-        static func make(_ dependencies: [ResolvableBuilder.Dependency]) -> DirectUseReport {
-            let cases: [Case] = dependencies.flatMap { called in
-                let sign = "\(called.function.name)(".utf8
+        static func make(registrables: [Registrable], performables: [Performable]) -> DirectUseReport {
+            let candidates = registrables.map(Candidate.init(_:)) + performables.map(Candidate.init(_:))
+            let cases: [Case] = candidates.flatMap { called in
+                let sign = "\(called.name)(".utf8
                 
-                return dependencies.compactMap { calling -> Case? in
+                return candidates.compactMap { calling -> Case? in
                     guard called.node != calling.node else { return nil }
                     guard let callingCode = calling.node.body else { return nil }
                     

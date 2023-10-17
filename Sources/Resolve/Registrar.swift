@@ -26,12 +26,14 @@ public final class Registrar: Sendable {
         self.typeIdentifier = ObjectIdentifier(type)
     }
     
+    @discardableResult
     public func register<V: Sendable>(for name: String, options: Options = .default, _ dependency: @escaping @Sendable () async throws -> V) async throws -> V {
         try await container(options: options).findOrCreate(name: name) {
             Task(operation: dependency)
         }.value
     }
     
+    @discardableResult
     public func register<V: Sendable>(for name: String, options: Options = .default, _ dependency: @escaping @Sendable () async -> V) async -> V {
         await container(options: options).findOrCreate(name: name) {
             Task(operation: dependency)

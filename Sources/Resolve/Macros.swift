@@ -15,3 +15,6 @@ public macro Register(name: String? = nil, options: Registrar.Options = .default
 
 @attached(peer)
 public macro RegisterTransient(name: String? = nil, options: Registrar.Options = .default) = #externalMacro(module: "Macros", type: "Register")
+
+@attached(peer)
+public macro Perform(options: Registrar.Options = .default) = #externalMacro(module: "Macros", type: "Perform")
