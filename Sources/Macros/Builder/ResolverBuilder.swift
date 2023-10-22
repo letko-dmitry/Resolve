@@ -245,13 +245,13 @@ private extension ResolverBuilder {
             return .init()
             """
         } else {
-            let arguments = registrables.nontransient.map { dependency in
-                "\(dependency.name): \(dependency.name)"
+            let arguments = registrables.nontransient.map { registrable in
+                "\(registrable.name): \(registrable.name)"
             }
             
             """
             return \(raw: throwableRegistrables ? "try " : "")await .init(
-                \(raw: arguments.joined(separator: ",\n"))
+                \(raw: arguments.joined(separator: ",\n\t"))
             )
             """
         }
@@ -261,12 +261,14 @@ private extension ResolverBuilder {
     func resolve() -> CodeBlockItemListSyntax {
         if registrables.nontransient.isEmpty && performables.all.isEmpty {
             """
+            @discardableResult
             func resolver() -> Resolved {
                 \(resolverReturn())
             }
             """
         } else if registrables.nontransient.isEmpty {
             """
+            @discardableResult
             func resolve() async \(raw: throwablePerformables ? "throws " : "")-> Resolved {
                 \(performableTasks())
             
