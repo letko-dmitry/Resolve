@@ -6,13 +6,20 @@
 //
 
 import Foundation
+import os.lock
 
-final class Container: @unchecked Sendable {
-    private let lock = NSLock()
-    private var values: [String: Any] = [:]
+@usableFromInline
+struct Container: Sendable {
+    private let values: OSAllocatedUnfairLock<Dictionary<String, any Sendable>>
+
+    @usableFromInline
+    init(minimumCapacity: Int = 0) {
+        values = OSAllocatedUnfairLock(initialState: .init(minimumCapacity: minimumCapacity))
+    }
     
-    func findOrCreate<V>(name: String, value: () -> V) -> V {
-        lock.withLock {
+    @usableFromInline
+    func findOrCreate<V: Sendable>(name: String, value: @Sendable () -> V) -> V {
+        values.withLock { values in
             if let value = values[name] as? V {
                 return value
             }
@@ -34,16 +41,15 @@ extension Container {
 
 // MARK: - private
 private extension Container {
-    final class Global {
-        private let lock = NSLock()
-        private var containers: [AnyHashable: Container] = [:]
+    struct Global {
+        private let containers = OSAllocatedUnfairLock(uncheckedState: Dictionary<AnyHashable, Container>())
         
         private init() { }
         
         static let shared = Global()
         
         func container(for identifier: AnyHashable) -> Container {
-            lock.withLock {
+            containers.withLockUnchecked { containers in
                 if let container = containers[identifier] { return container }
                 
                 let container = Container()

@@ -26,10 +26,10 @@ struct ResolverBuilder {
     let registrar: Registrar = .init()
     
     func build() -> DeclSyntax {
-        func resolver(_ body: () -> DeclSyntax) -> DeclSyntax {
+        func resolver(_ body: () -> MemberBlockItemListSyntax) -> DeclSyntax {
             return """
             struct Resolver: Sendable {
-                \(body())
+            \(body())
             }
             """
         }
@@ -118,9 +118,9 @@ private extension ResolverBuilder {
                 }
                 
                 let functionEffect = "\(registrable.function.throwable ? "try " : "")\(registrable.function.concurrent ? "await " : "")"
-                let functionCall: DeclSyntax = "\(raw: functionEffect)_\(declaration.name).\(function.name)(\(raw: functionParameters))"
+                let functionCall: ExprSyntax = "\(raw: functionEffect)_\(declaration.name).\(function.name)(\(raw: functionParameters))"
                 
-                var register: DeclSyntax {
+                var register: ExprSyntax {
                     if let options = registrable.attribute.options {
                         "register(for: \"\(registrable.name)\", options: \(options))"
                     } else {
@@ -178,9 +178,9 @@ private extension ResolverBuilder {
                 }
                 
                 let functionEffect = "\(performable.function.throwable ? "try " : "")\(performable.function.concurrent ? "await " : "")"
-                let functionCall: DeclSyntax = "\(raw: functionEffect)_\(declaration.name).\(function.name)(\(raw: functionParameters))"
+                let functionCall: ExprSyntax = "\(raw: functionEffect)_\(declaration.name).\(function.name)(\(raw: functionParameters))"
                 
-                var register: DeclSyntax {
+                var register: ExprSyntax {
                     if let options = performable.attribute.options {
                         "register(for: \"\(performable.name)\", options: \(options))"
                     } else {

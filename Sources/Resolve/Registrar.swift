@@ -7,10 +7,11 @@
 
 import Foundation
 
-public final class Registrar: Sendable {
-    public struct Options {
+public struct Registrar: Sendable {
+    public struct Options: Sendable {
         public let singleton: Bool
         
+        @inlinable
         public init(singleton: Bool = false) {
             self.singleton = singleton
         }
@@ -19,14 +20,17 @@ public final class Registrar: Sendable {
         public static let singleton = Options(singleton: true)
     }
     
-    private let local = Container()
-    private let typeIdentifier: ObjectIdentifier
+    @usableFromInline let local: Container
+    @usableFromInline let typeIdentifier: ObjectIdentifier
     
-    public init<T>(for type: T.Type) {
+    @inlinable
+    public init<T>(for type: T.Type, minimumCapacity: Int = 0) {
+        self.local = Container(minimumCapacity: minimumCapacity)
         self.typeIdentifier = ObjectIdentifier(type)
     }
     
     @discardableResult
+    @inlinable
     public func register<V: Sendable>(for name: String, options: Options = .default, _ dependency: @escaping @Sendable () async throws -> V) async throws -> V {
         try await container(options: options).findOrCreate(name: name) {
             Task(operation: dependency)
@@ -34,6 +38,7 @@ public final class Registrar: Sendable {
     }
     
     @discardableResult
+    @inlinable
     public func register<V: Sendable>(for name: String, options: Options = .default, _ dependency: @escaping @Sendable () async -> V) async -> V {
         await container(options: options).findOrCreate(name: name) {
             Task(operation: dependency)
@@ -41,8 +46,8 @@ public final class Registrar: Sendable {
     }
 }
 
-// MARK: - private
-private extension Registrar {
+extension Registrar {
+    @usableFromInline
     func container(options: Options) -> Container {
         options.singleton ? Container.global(for: typeIdentifier) : local
     }
