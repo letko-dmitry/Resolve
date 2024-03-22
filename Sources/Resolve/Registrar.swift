@@ -19,7 +19,7 @@ public struct Registrar: Sendable {
         public static let `default` = Options()
         public static let once = Options(once: true)
         
-        @available(*, deprecated, renamed: "Use `.once` instead")
+        @available(*, deprecated, renamed: "once")
         public static var singleton: Options { .once }
     }
     
