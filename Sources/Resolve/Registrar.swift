@@ -9,15 +9,18 @@ import Foundation
 
 public struct Registrar: Sendable {
     public struct Options: Sendable {
-        public let singleton: Bool
+        public let once: Bool
         
         @inlinable
-        public init(singleton: Bool = false) {
-            self.singleton = singleton
+        public init(once: Bool = false) {
+            self.once = once
         }
         
         public static let `default` = Options()
-        public static let singleton = Options(singleton: true)
+        public static let once = Options(once: true)
+        
+        @available(*, deprecated, renamed: "Use `.once` instead")
+        public static var singleton: Options { .once }
     }
     
     @usableFromInline let local: Container
@@ -49,6 +52,6 @@ public struct Registrar: Sendable {
 extension Registrar {
     @usableFromInline
     func container(options: Options) -> Container {
-        options.singleton ? Container.global(for: typeIdentifier) : local
+        options.once ? Container.global(for: typeIdentifier) : local
     }
 }
