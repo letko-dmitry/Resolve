@@ -16,7 +16,7 @@ struct Container {
     }
     
     @Register
-    func network() async -> String {
+    func network(resolver: Resolver) async throws -> String {
         return String()
     }
     

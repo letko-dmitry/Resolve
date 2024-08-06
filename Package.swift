@@ -41,6 +41,7 @@ let package = Package(
             ],
             path: "Sources/Resolve",
             swiftSettings: [
+                .disableReflectionMetadata,
                 .strictConcurrency
             ]
         ),
@@ -64,5 +65,6 @@ let package = Package(
 
 // MARK: - SwiftSetting
 private extension SwiftSetting {
+    static let disableReflectionMetadata = SwiftSetting.unsafeFlags(["-Xfrontend", "-disable-reflection-metadata"], .when(configuration: .release))
     static let strictConcurrency = SwiftSetting.unsafeFlags(["-Xfrontend", "-strict-concurrency=complete"])
 }
