@@ -23,6 +23,6 @@ extension FunctionDeclSyntax {
     }
     
     var throwable: Bool {
-        signature.effectSpecifiers?.throwsSpecifier != nil
+        signature.effectSpecifiers?.throwsClause?.throwsSpecifier != nil
     }
 }

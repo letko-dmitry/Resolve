@@ -1,4 +1,4 @@
-// swift-tools-version: 5.10
+// swift-tools-version: 6.0
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -19,7 +19,7 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "git@github.com:apple/swift-syntax.git", from: "510.0.2")
+        .package(url: "git@github.com:apple/swift-syntax.git", from: "600.0.1")
     ],
     targets: [
         .macro(
@@ -29,10 +29,7 @@ let package = Package(
                 .product(name: "SwiftSyntaxMacroExpansion", package: "swift-syntax"),
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax")
             ],
-            path: "Sources/Macros",
-            swiftSettings: [
-                .strictConcurrency
-            ]
+            path: "Sources/Macros"
         ),
         .target(
             name: "Resolve",
@@ -41,8 +38,7 @@ let package = Package(
             ],
             path: "Sources/Resolve",
             swiftSettings: [
-                .disableReflectionMetadata,
-                .strictConcurrency
+                .disableReflectionMetadata
             ]
         ),
         .executableTarget(
@@ -66,5 +62,4 @@ let package = Package(
 // MARK: - SwiftSetting
 private extension SwiftSetting {
     static let disableReflectionMetadata = SwiftSetting.unsafeFlags(["-Xfrontend", "-disable-reflection-metadata"], .when(configuration: .release))
-    static let strictConcurrency = SwiftSetting.unsafeFlags(["-Xfrontend", "-strict-concurrency=complete"])
 }

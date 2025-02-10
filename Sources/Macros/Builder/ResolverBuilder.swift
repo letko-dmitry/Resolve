@@ -86,7 +86,7 @@ struct ResolverBuilder {
 // MARK: - private
 private extension ResolverBuilder {
     func registrarVariable() -> MemberBlockItemListSyntax {
-        "private let _\(registrar.name) = \(registrar.type)(for: \(declaration.type).self)"
+        "private let _\(registrar.name) = \(registrar.type)(for: \(declaration.type).self, minimumCapacity: \(raw: (performables.all.count &+ registrables.all.count).description))"
     }
     
     func containerVariable() -> MemberBlockItemListSyntax {
