@@ -7,7 +7,7 @@ public enum Resolvable: MemberMacro {
         case unknownDeclaration = "The macros must be attached to a class or a struct"
     }
     
-    public static func expansion(of node: AttributeSyntax, providingMembersOf declaration: some DeclGroupSyntax, in context: some MacroExpansionContext) throws -> [DeclSyntax] {
+    public static func expansion(of node: AttributeSyntax, providingMembersOf declaration: some DeclGroupSyntax, conformingTo protocols: [TypeSyntax], in context: some MacroExpansionContext) throws -> [DeclSyntax] {
         guard let named = declaration.asProtocol(NamedDeclSyntax.self) else {
             throw ParseError.unknownDeclaration
         }
