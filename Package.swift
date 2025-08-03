@@ -38,7 +38,10 @@ let package = Package(
             ],
             path: "Sources/Resolve",
             swiftSettings: [
-                .disableReflectionMetadata
+                .disableReflectionMetadata,
+                .internalImportsByDefault,
+                .existentialAny,
+                .memberImportVisibility
             ]
         ),
         .executableTarget(
@@ -62,4 +65,7 @@ let package = Package(
 // MARK: - SwiftSetting
 private extension SwiftSetting {
     static let disableReflectionMetadata = SwiftSetting.unsafeFlags(["-Xfrontend", "-disable-reflection-metadata"], .when(configuration: .release))
+    static let internalImportsByDefault = SwiftSetting.enableUpcomingFeature("InternalImportsByDefault")
+    static let existentialAny = SwiftSetting.enableUpcomingFeature("ExistentialAny")
+    static let memberImportVisibility = SwiftSetting.enableUpcomingFeature("MemberImportVisibility")
 }

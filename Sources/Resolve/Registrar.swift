@@ -5,8 +5,6 @@
 //  Created by Dzmitry Letko on 01/10/2023.
 //
 
-import Foundation
-
 public struct Registrar: Sendable {
     public struct Options: Sendable {
         public let once: Bool

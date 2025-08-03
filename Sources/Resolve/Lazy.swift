@@ -5,8 +5,6 @@
 //  Created by Dzmitry Letko on 10/02/2025.
 //
 
-import Foundation
-
 public actor Lazy<Value: Sendable>: Sendable {
     private enum State {
         case resolvable(@Sendable () async -> Value)
@@ -52,7 +50,7 @@ public actor Lazy<Value: Sendable>: Sendable {
 public actor LazyThrowable<Value: Sendable>: Sendable {
     private enum State {
         case resolvable(@Sendable () async throws -> Value)
-        case resolving(Task<Value, Error>)
+        case resolving(Task<Value, any Error>)
         case resolved(Value)
     }
 

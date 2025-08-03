@@ -5,7 +5,6 @@
 //  Created by Dzmitry Letko on 14/10/2023.
 //
 
-import Foundation
 import os.lock
 
 @usableFromInline
