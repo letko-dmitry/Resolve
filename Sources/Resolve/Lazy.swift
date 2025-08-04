@@ -45,8 +45,8 @@ public final class Lazy<Value: Sendable>: Sendable {
     }
     
     @inlinable
-    public var valueUnwrapped: Value! {
-        valueIfResolved
+    public var valueUnwrapped: Value {
+        valueIfResolved!
     }
     
     public var valueIfResolved: Value? {
