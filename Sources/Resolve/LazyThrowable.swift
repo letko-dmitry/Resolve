@@ -63,6 +63,7 @@ public final class LazyThrowable<Value: Sendable>: Sendable {
     }
     
     @inlinable
+    @discardableResult
     public func resolve() async throws -> Value {
         try await value
     }
