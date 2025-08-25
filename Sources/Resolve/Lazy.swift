@@ -9,19 +9,21 @@ import os.lock
 
 public final class Lazy<Value: Sendable>: Sendable {
     private let state: OSAllocatedUnfairLock<State>
-    private var resolution: Resolution {
+    private var resolution: Resolution<Value, Never> {
         get async {
             state.withLock { current in
                 switch current {
                 case .resolvable(let resolvable):
-                    let task = Task {
-                        let value = await resolvable()
-                        
-                        state.withLock { state in
-                            state = .resolved(value)
+                    let task = OnDemand { [state] in
+                        Task {
+                            let value = await resolvable()
+                            
+                            state.withLock { state in
+                                state = .resolved(value)
+                            }
+                            
+                            return value
                         }
-                        
-                        return value
                     }
                     
                     current = .resolving(task)
@@ -78,21 +80,7 @@ public final class Lazy<Value: Sendable>: Sendable {
 private extension Lazy {
     enum State {
         case resolvable(@Sendable () async -> Value)
-        case resolving(Task<Value, Never>)
+        case resolving(OnDemand<Task<Value, Never>>)
         case resolved(Value)
-    }
-    
-    enum Resolution {
-        case value(Value)
-        case task(Task<Value, Never>)
-        
-        var value: Value {
-            get async {
-                switch self {
-                case .task(let task): return await task.value
-                case .value(let value): return value
-                }
-            }
-        }
     }
 }

@@ -9,19 +9,21 @@ import os.lock
 
 public final class LazyThrowable<Value: Sendable>: Sendable {
     private let state: OSAllocatedUnfairLock<State>
-    private var resolution: Resolution {
+    private var resolution: Resolution<Value, any Error> {
         get async {
             state.withLock { current in
                 switch current {
                 case .resolvable(let resolvable):
-                    let task = Task {
-                        let value = try await resolvable()
-                        
-                        state.withLock { state in
-                            state = .resolved(value)
+                    let task = OnDemand { [state] in
+                        Task {
+                            let value = try await resolvable()
+                            
+                            state.withLock { state in
+                                state = .resolved(value)
+                            }
+                            
+                            return value
                         }
-                        
-                        return value
                     }
                     
                     current = .resolving(task)
@@ -78,21 +80,7 @@ public final class LazyThrowable<Value: Sendable>: Sendable {
 private extension LazyThrowable {
     enum State {
         case resolvable(@Sendable () async throws -> Value)
-        case resolving(Task<Value, any Error>)
+        case resolving(OnDemand<Task<Value, any Error>>)
         case resolved(Value)
-    }
-    
-    enum Resolution {
-        case value(Value)
-        case task(Task<Value, any Error>)
-        
-        var value: Value {
-            get async throws {
-                switch self {
-                case .task(let task): return try await task.value
-                case .value(let value): return value
-                }
-            }
-        }
     }
 }
