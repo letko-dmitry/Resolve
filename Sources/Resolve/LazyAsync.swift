@@ -11,7 +11,7 @@ public final class LazyAsync<Value: Sendable>: Sendable {
     private let state: OSAllocatedUnfairLock<State>
     private var resolution: Resolution<Value, Never> {
         get async {
-            state.withAdaptiveSpinIfPossible { current in
+            state.withLock { current in
                 switch current {
                 case .resolvable(let resolvable):
                     let task = Lazy { [state] in
@@ -52,7 +52,7 @@ public final class LazyAsync<Value: Sendable>: Sendable {
     }
     
     public var valueIfResolved: Value? {
-        state.withAdaptiveSpinIfPossible { state in
+        state.withLock { state in
             switch state {
             case .resolvable, .resolving: return nil
             case .resolved(let value): return value
