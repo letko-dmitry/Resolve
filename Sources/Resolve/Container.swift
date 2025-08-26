@@ -18,7 +18,7 @@ struct Container: Sendable {
     
     @usableFromInline
     func findOrCreate<V: Sendable>(name: String, value: @Sendable () -> V) -> V {
-        values.withLock { values in
+        values.withAdaptiveSpinIfPossible { values in
             if let value = values[name] as? V {
                 return value
             }
@@ -48,7 +48,7 @@ private extension Container {
         static let shared = Global()
         
         func container(for identifier: AnyHashable) -> Container {
-            containers.withLockUnchecked { containers in
+            containers.withAdaptiveSpinUncheckedIfPossible { containers in
                 if let container = containers[identifier] { return container }
                 
                 let container = Container()

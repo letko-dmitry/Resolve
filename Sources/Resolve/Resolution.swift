@@ -7,7 +7,7 @@
 
 enum Resolution<Value: Sendable, Failure: Error> {
     case value(Value)
-    case task(OnDemand<Task<Value, Failure>>)
+    case task(Lazy<Task<Value, Failure>>)
 }
 
 extension Resolution {

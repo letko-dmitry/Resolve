@@ -1,22 +1,22 @@
 //
-//  LazyThrowable.swift
+//  LazyAsync.swift
 //  Resolve
 //
-//  Created by Dzmitry Letko on 04/08/2025.
+//  Created by Dzmitry Letko on 10/02/2025.
 //
 
 import os.lock
 
-public final class LazyThrowable<Value: Sendable>: Sendable {
+public final class LazyAsync<Value: Sendable>: Sendable {
     private let state: OSAllocatedUnfairLock<State>
-    private var resolution: Resolution<Value, any Error> {
+    private var resolution: Resolution<Value, Never> {
         get async {
-            state.withLock { current in
+            state.withAdaptiveSpinIfPossible { current in
                 switch current {
                 case .resolvable(let resolvable):
-                    let task = OnDemand { [state] in
+                    let task = Lazy { [state] in
                         Task {
-                            let value = try await resolvable()
+                            let value = await resolvable()
                             
                             state.withLock { state in
                                 state = .resolved(value)
@@ -41,8 +41,8 @@ public final class LazyThrowable<Value: Sendable>: Sendable {
     }
     
     public var value: Value {
-        get async throws {
-            try await resolution.value
+        get async {
+            await resolution.value
         }
     }
     
@@ -52,7 +52,7 @@ public final class LazyThrowable<Value: Sendable>: Sendable {
     }
     
     public var valueIfResolved: Value? {
-        state.withLock { state in
+        state.withAdaptiveSpinIfPossible { state in
             switch state {
             case .resolvable, .resolving: return nil
             case .resolved(let value): return value
@@ -60,27 +60,27 @@ public final class LazyThrowable<Value: Sendable>: Sendable {
         }
     }
     
-    public init(_ resolve: @Sendable @escaping () async throws -> Value) {
+    public init(_ resolve: @Sendable @escaping () async -> Value) {
         state = .init(initialState: .resolvable(resolve))
     }
     
     @inlinable
     @discardableResult
-    public func resolve() async throws -> Value {
-        try await value
+    public func resolve() async -> Value {
+        await value
     }
     
     @inlinable
-    public func callAsFunction() async throws -> Value {
-        try await value
+    public func callAsFunction() async -> Value {
+        await value
     }
 }
 
 // MARK: - private
-private extension LazyThrowable {
+private extension LazyAsync {
     enum State {
-        case resolvable(@Sendable () async throws -> Value)
-        case resolving(OnDemand<Task<Value, any Error>>)
+        case resolvable(@Sendable () async -> Value)
+        case resolving(Lazy<Task<Value, Never>>)
         case resolved(Value)
     }
 }
