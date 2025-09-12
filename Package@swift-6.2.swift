@@ -1,4 +1,4 @@
-// swift-tools-version: 6.1
+// swift-tools-version: 6.2
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -40,6 +40,7 @@ let package = Package(
             path: "Sources/Resolve",
             swiftSettings: [
                 .disableReflectionMetadata,
+                .approachableConcurrency,
                 .existentialAny,
                 .internalImportsByDefault,
                 .memberImportVisibility
@@ -66,6 +67,7 @@ let package = Package(
 // MARK: - SwiftSetting
 private extension SwiftSetting {
     static let disableReflectionMetadata = SwiftSetting.unsafeFlags(["-Xfrontend", "-disable-reflection-metadata"], .when(configuration: .release))
+    static let approachableConcurrency = SwiftSetting.enableUpcomingFeature("ApproachableConcurrency")
     static let existentialAny = SwiftSetting.enableUpcomingFeature("ExistentialAny")
     static let internalImportsByDefault = SwiftSetting.enableUpcomingFeature("InternalImportsByDefault")
     static let memberImportVisibility = SwiftSetting.enableUpcomingFeature("MemberImportVisibility")
