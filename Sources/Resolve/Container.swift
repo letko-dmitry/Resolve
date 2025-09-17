@@ -8,8 +8,8 @@
 import os.lock
 
 @usableFromInline
-struct Container: Sendable {
-    private let values: OSAllocatedUnfairLock<Dictionary<String, any Sendable>>
+struct Container<Key: Sendable & Hashable>: Sendable {
+    private let values: OSAllocatedUnfairLock<Dictionary<Key, any Sendable>>
 
     @usableFromInline
     init(minimumCapacity: Int = 0) {
@@ -17,46 +17,17 @@ struct Container: Sendable {
     }
     
     @usableFromInline
-    func findOrCreate<V: Sendable>(name: String, value: @Sendable () -> V) -> V {
+    func findOrCreate<V: Sendable>(key: Key, value: @Sendable () -> V) -> V {
         values.withLock { values in
-            if let value = values[name] as? V {
+            if let value = values[key] as? V {
                 return value
             }
             
             let value = value()
-            
-            values[name] = value
+
+            values[key] = value
             
             return value
-        }
-    }
-}
-
-extension Container {
-    static func global(for identifier: some Hashable) -> Container {
-        Global.shared.container(for: identifier)
-    }
-}
-
-// MARK: - private
-private extension Container {
-    struct Global {
-        private let containers = OSAllocatedUnfairLock(uncheckedState: Dictionary<AnyHashable, Container>())
-        
-        private init() { }
-        
-        static let shared = Global()
-        
-        func container(for identifier: AnyHashable) -> Container {
-            containers.withLockUnchecked { containers in
-                if let container = containers[identifier] { return container }
-                
-                let container = Container()
-                
-                containers[identifier] = container
-                
-                return container
-            }
         }
     }
 }

@@ -15,6 +15,11 @@ struct Container {
         return String()
     }
     
+    @Register(options: .once)
+    func pipeline() async -> String {
+        return String()
+    }
+    
     @Register
     func network(resolver: Resolver) async throws -> String {
         return String()

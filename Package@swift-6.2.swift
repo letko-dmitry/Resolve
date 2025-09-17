@@ -20,7 +20,7 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "git@github.com:swiftlang/swift-syntax.git", from: "601.0.1")
+        .package(url: "git@github.com:swiftlang/swift-syntax.git", from: "602.0.0")
     ],
     targets: [
         .macro(
@@ -40,6 +40,7 @@ let package = Package(
             path: "Sources/Resolve",
             swiftSettings: [
                 .disableReflectionMetadata,
+                .strictMemorySafety,
                 .approachableConcurrency,
                 .existentialAny,
                 .internalImportsByDefault,
@@ -67,6 +68,7 @@ let package = Package(
 // MARK: - SwiftSetting
 private extension SwiftSetting {
     static let disableReflectionMetadata = SwiftSetting.unsafeFlags(["-Xfrontend", "-disable-reflection-metadata"], .when(configuration: .release))
+    static let strictMemorySafety = SwiftSetting.unsafeFlags(["-Xfrontend", "-strict-memory-safety"])
     static let approachableConcurrency = SwiftSetting.enableUpcomingFeature("ApproachableConcurrency")
     static let existentialAny = SwiftSetting.enableUpcomingFeature("ExistentialAny")
     static let internalImportsByDefault = SwiftSetting.enableUpcomingFeature("InternalImportsByDefault")

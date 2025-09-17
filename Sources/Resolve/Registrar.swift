@@ -21,7 +21,7 @@ public struct Registrar: Sendable {
         public static var singleton: Options { .once }
     }
     
-    @usableFromInline let local: Container
+    @usableFromInline let local: Container<String>
     @usableFromInline let typeIdentifier: ObjectIdentifier
     
     @inlinable
@@ -32,16 +32,16 @@ public struct Registrar: Sendable {
     
     @discardableResult
     @inlinable
-    public func register<V: Sendable>(for name: String, options: Options = .default, _ dependency: @escaping @Sendable () async throws -> V) async throws -> V {
-        try await container(options: options).findOrCreate(name: name) {
+    public func register<V: Sendable>(for name: String, options: Options = .default, @_implicitSelfCapture _ dependency: @escaping @Sendable () async throws -> V) async throws -> V {
+        try await container(options: options).findOrCreate(key: name) {
             Task(operation: dependency)
         }.value
     }
     
     @discardableResult
     @inlinable
-    public func register<V: Sendable>(for name: String, options: Options = .default, _ dependency: @escaping @Sendable () async -> V) async -> V {
-        await container(options: options).findOrCreate(name: name) {
+    public func register<V: Sendable>(for name: String, options: Options = .default, @_implicitSelfCapture _ dependency: @escaping @Sendable () async -> V) async -> V {
+        await container(options: options).findOrCreate(key: name) {
             Task(operation: dependency)
         }.value
     }
@@ -49,7 +49,19 @@ public struct Registrar: Sendable {
 
 extension Registrar {
     @usableFromInline
-    func container(options: Options) -> Container {
-        options.once ? Container.global(for: typeIdentifier) : local
+    func container(options: Options) -> Container<String> {
+        options.once ? global : local
     }
+}
+
+// MARK: - Registrar
+private extension Registrar {
+    var global: Container<String> {
+        Container.global.findOrCreate(key: typeIdentifier) { Container() }
+    }
+}
+
+// MARK: - Container<ObjectIdentifier>
+private extension Container<ObjectIdentifier> {
+    static let global = Self()
 }
