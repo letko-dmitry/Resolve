@@ -6,6 +6,7 @@
 //
 
 import SwiftSyntax
+import SwiftSyntaxBuilder
 
 extension MemberBlockItemListSyntax {
     init(separator: String, @StringCollectionBuilder stringCollectionBuilder: () -> [String]) {

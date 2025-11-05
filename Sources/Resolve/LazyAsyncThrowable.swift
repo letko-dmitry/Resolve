@@ -47,6 +47,7 @@ public final class LazyAsyncThrowable<Value: Sendable>: Sendable {
     }
     
     @inlinable
+    @inline(__always)
     public var valueUnwrapped: Value {
         valueIfResolved!
     }
@@ -65,12 +66,14 @@ public final class LazyAsyncThrowable<Value: Sendable>: Sendable {
     }
     
     @inlinable
+    @inline(__always)
     @discardableResult
     public func resolve() async throws -> Value {
         try await value
     }
     
     @inlinable
+    @inline(__always)
     public func callAsFunction() async throws -> Value {
         try await value
     }

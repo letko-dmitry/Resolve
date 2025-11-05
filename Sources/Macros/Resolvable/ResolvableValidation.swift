@@ -5,12 +5,10 @@
 //  Created by Dzmitry Letko on 05/10/2023.
 //
 
-import Foundation
 import SwiftDiagnostics
 import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
-import SwiftSyntaxMacroExpansion
 
 struct ResolvableValidation {
     let registrables: [Registrable]
@@ -183,7 +181,7 @@ private extension ResolvableValidation {
                         newNode: Syntax(functionNew)
                     )
                     
-                    let highlights: [SyntaxProtocol] = [misuse.function, directUseCase.called.node, parametersOld]
+                    let highlights: [any SyntaxProtocol] = [misuse.function, directUseCase.called.node, parametersOld]
                     let diagnostic = Diagnostic(
                         node: misuse.function,
                         message: errorMessage,

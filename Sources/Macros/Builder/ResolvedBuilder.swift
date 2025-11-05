@@ -6,6 +6,7 @@
 //
 
 import SwiftSyntax
+import SwiftSyntaxBuilder
 
 struct ResolvedBuilder {
     let registrables: Registrables

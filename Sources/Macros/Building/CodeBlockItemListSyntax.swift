@@ -6,6 +6,7 @@
 //
 
 import SwiftSyntax
+import SwiftSyntaxBuilder
 
 extension CodeBlockItemListSyntax {
     init(separator: String, @StringCollectionBuilder stringCollectionBuilder: () -> [String]) {

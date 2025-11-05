@@ -7,7 +7,6 @@
 
 import SwiftSyntax
 import SwiftSyntaxMacros
-import SwiftSyntaxMacroExpansion
 import SwiftDiagnostics
 
 struct PerformAttribute {

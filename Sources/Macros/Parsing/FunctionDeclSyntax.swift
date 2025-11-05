@@ -6,7 +6,6 @@
 //
 
 import SwiftSyntax
-import SwiftParser
 
 extension FunctionDeclSyntax {
     var concurrent: Bool {

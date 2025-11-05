@@ -8,8 +8,8 @@
 import Foundation
 import SwiftSyntax
 import SwiftSyntaxMacros
-import SwiftSyntaxMacroExpansion
 import SwiftDiagnostics
+import SwiftSyntaxBuilder
 
 struct Performables {
     let all: [Performable]

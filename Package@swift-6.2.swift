@@ -26,11 +26,14 @@ let package = Package(
         .macro(
             name: "Macros",
             dependencies: [
-                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
-                .product(name: "SwiftSyntaxMacroExpansion", package: "swift-syntax"),
-                .product(name: "SwiftCompilerPlugin", package: "swift-syntax")
+                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+                .product(name: "SwiftDiagnostics", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
+                .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
+                .product(name: "SwiftSyntaxMacros", package: "swift-syntax")
             ],
-            path: "Sources/Macros"
+            path: "Sources/Macros",
+            swiftSettings: .`default`
         ),
         .target(
             name: "Resolve",
@@ -38,14 +41,7 @@ let package = Package(
                 .target(name: "Macros")
             ],
             path: "Sources/Resolve",
-            swiftSettings: [
-                .disableReflectionMetadata,
-                .strictMemorySafety,
-                .approachableConcurrency,
-                .existentialAny,
-                .internalImportsByDefault,
-                .memberImportVisibility
-            ]
+            swiftSettings: .`default`
         ),
         .executableTarget(
             name: "Playground",
@@ -68,9 +64,22 @@ let package = Package(
 // MARK: - SwiftSetting
 private extension SwiftSetting {
     static let disableReflectionMetadata = SwiftSetting.unsafeFlags(["-Xfrontend", "-disable-reflection-metadata"], .when(configuration: .release))
-    static let strictMemorySafety = SwiftSetting.unsafeFlags(["-Xfrontend", "-strict-memory-safety"])
+    static let internalizeAtLink = SwiftSetting.unsafeFlags(["-Xfrontend", "-internalize-at-link"], .when(configuration: .release))
     static let approachableConcurrency = SwiftSetting.enableUpcomingFeature("ApproachableConcurrency")
     static let existentialAny = SwiftSetting.enableUpcomingFeature("ExistentialAny")
     static let internalImportsByDefault = SwiftSetting.enableUpcomingFeature("InternalImportsByDefault")
     static let memberImportVisibility = SwiftSetting.enableUpcomingFeature("MemberImportVisibility")
+}
+
+// MARK: - SwiftSetting
+private extension Array<SwiftSetting> {
+    static let `default`: Self = [
+        .disableReflectionMetadata,
+        .internalizeAtLink,
+        .approachableConcurrency,
+        .existentialAny,
+        .internalImportsByDefault,
+        .memberImportVisibility,
+        .strictMemorySafety()
+    ]
 }

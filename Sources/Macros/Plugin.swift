@@ -10,7 +10,7 @@ import SwiftSyntaxMacros
 
 @main
 struct Plugin: CompilerPlugin {
-    let providingMacros: [Macro.Type] = [
+    let providingMacros: [any Macro.Type] = [
         Resolvable.self,
         Register.self,
         Perform.self

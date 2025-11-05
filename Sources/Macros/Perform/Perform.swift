@@ -5,9 +5,9 @@
 //  Created by Dzmitry Letko on 16/10/2023.
 //
 
-import SwiftSyntax
-import SwiftSyntaxMacros
-import SwiftSyntaxMacroExpansion
+public import SwiftSyntax
+public import SwiftSyntaxMacros
+
 import SwiftDiagnostics
 
 public struct Perform: PeerMacro {

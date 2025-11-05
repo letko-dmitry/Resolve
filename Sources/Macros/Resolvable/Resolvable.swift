@@ -1,6 +1,6 @@
-import Foundation
-import SwiftSyntax
-import SwiftSyntaxMacros
+
+public import SwiftSyntax
+public import SwiftSyntaxMacros
 
 public enum Resolvable: MemberMacro {
     enum ParseError: String, Error {
@@ -8,7 +8,7 @@ public enum Resolvable: MemberMacro {
     }
     
     public static func expansion(of node: AttributeSyntax, providingMembersOf declaration: some DeclGroupSyntax, conformingTo protocols: [TypeSyntax], in context: some MacroExpansionContext) throws -> [DeclSyntax] {
-        guard let named = declaration.asProtocol(NamedDeclSyntax.self) else {
+        guard let named = declaration.asProtocol((any NamedDeclSyntax).self) else {
             throw ParseError.unknownDeclaration
         }
         

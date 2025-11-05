@@ -5,8 +5,6 @@
 //  Created by Dzmitry Letko on 17/10/2023.
 //
 
-import Foundation
-
 @resultBuilder
 struct StringCollectionBuilder {
     static func buildBlock(_ components: [String]...) -> [String] {

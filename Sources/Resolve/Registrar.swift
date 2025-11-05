@@ -10,6 +10,7 @@ public struct Registrar: Sendable {
         public let once: Bool
         
         @inlinable
+        @inline(__always)
         public init(once: Bool = false) {
             self.once = once
         }
