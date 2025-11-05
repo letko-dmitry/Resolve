@@ -32,7 +32,7 @@ let package = Package(
                 .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax")
             ],
-            path: "Sources/Macros"
+            path: "Sources/Macros",
             swiftSettings: .`default`
         ),
         .target(
