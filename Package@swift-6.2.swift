@@ -29,6 +29,7 @@ let package = Package(
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
                 .product(name: "SwiftDiagnostics", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax"),
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax")
             ],
@@ -48,15 +49,18 @@ let package = Package(
             dependencies: [
                 .target(name: "Resolve")
             ],
-            path: "Sources/Playground"
+            path: "Sources/Playground",
+            swiftSettings: .`default`
         ),
         .testTarget(
             name: "Tests",
             dependencies: [
+                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
                 .target(name: "Macros")
             ],
-            path: "Sources/Tests"
+            path: "Sources/Tests",
+            swiftSettings: .`default`
         )
     ]
 )
