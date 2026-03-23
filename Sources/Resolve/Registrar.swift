@@ -33,7 +33,7 @@ public struct Registrar: Sendable {
     
     @discardableResult
     @inlinable
-    public func register<V: Sendable>(for name: String, options: Options = .default, @_implicitSelfCapture _ dependency: @escaping @Sendable () async throws -> V) async throws -> V {
+    public func register<V: Sendable>(for name: String, options: Options = .default, @_implicitSelfCapture _ dependency: @isolated(any) @escaping @Sendable () async throws -> V) async throws -> V {
         try await container(options: options).findOrCreate(key: name) {
             Task(operation: dependency)
         }.value
@@ -41,7 +41,7 @@ public struct Registrar: Sendable {
     
     @discardableResult
     @inlinable
-    public func register<V: Sendable>(for name: String, options: Options = .default, @_implicitSelfCapture _ dependency: @escaping @Sendable () async -> V) async -> V {
+    public func register<V: Sendable>(for name: String, options: Options = .default, @_implicitSelfCapture _ dependency: @isolated(any) @escaping @Sendable () async -> V) async -> V {
         await container(options: options).findOrCreate(key: name) {
             Task(operation: dependency)
         }.value
