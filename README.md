@@ -1,6 +1,13 @@
 # Resolve
 
+<p align="left">
+<img src="https://img.shields.io/badge/Swift-6.1%2B-F05138?logo=swift&logoColor=white" alt="Swift 6.1+">
+<img src="https://img.shields.io/badge/Platforms-macOS%2014%2C%20iOS%2017%2C%20watchOS%2010-lightgrey" alt="Platforms">
+</p>
+
 A macro-based dependency injection framework for Swift. Declare your dependencies as plain methods, and Resolve generates a thread-safe, concurrent resolver at compile time.
+
+> **Compile-time generation** · **Structured concurrency** · **Per-resolver or process lifetime** · **Modular composition** · **Sendable by default** · **Zero runtime dependencies**
 
 ```swift
 import Resolve
@@ -31,7 +38,9 @@ resolved.database // ready to use
 
 ## Requirements
 
-- macOS 14+ / iOS 17+ / watchOS 10+
+| Swift | Platforms                                 |
+|-------|-------------------------------------------|
+| 6.1+  | macOS 14.0+, iOS 17.0+, watchOS 10.0+     |
 
 ## Installation
 
@@ -70,12 +79,16 @@ Methods may be synchronous, `async`, `throws`, or `async throws`. They may take 
 ```swift
 @Resolvable
 struct Services {
-    let identificator: Identificator
-
     // Synchronous, no dependencies.
     @Register
     func featureFlags() -> FeatureFlags {
         FeatureFlags()
+    }
+
+    // Throwing, used by siblings.
+    @Register
+    func exerciseBundle() throws -> ExerciseBundle {
+        try ExerciseBundleReader().read()
     }
 
     // Synchronous, depends on a sibling via Resolver.
@@ -122,7 +135,7 @@ Same as `@Register`, but the value is **not** included in `Resolved`. Use for in
 
 ```swift
 @Resolvable
-struct AppAssembly {
+struct WiringAssembly {
     let essential: Essential
 
     // Synchronous transient -- cheap to build, used by siblings.
@@ -163,8 +176,6 @@ Marks a side-effect-only step with no return value. Runs during `resolve()` in p
 ```swift
 @Resolvable
 struct ThirdParty {
-    let identificator: Identificator
-
     // Process-lifetime one-shot -- configure an SDK exactly once.
     @Perform(options: .once)
     func firebase() async {
@@ -186,7 +197,13 @@ struct ThirdParty {
         try ConfigurationManager.apply()
     }
 
-    // Per-Resolver lifetime -- runs on every resolve().
+    // Sibling registration consumed by the @Perform below.
+    @Register
+    func database() async throws -> Database {
+        try await Database.open(path: "app.db")
+    }
+
+    // Per-Resolver lifetime -- depends on a sibling registration via Resolver.
     @Perform
     func importExercises(_ resolver: Resolver) async throws {
         try await ExercisesImportJob.run(database: resolver.database)
@@ -262,7 +279,7 @@ let session = LazyAsyncThrowable {
 let s = try await session.value
 ```
 
-All lazy types support `callAsFunction`, so `lazy()` and `lazy.value` are equivalent (for async variants, `await lazy()` and `await lazy.value`).
+`Lazy` and `LazyThrowable` support `callAsFunction` -- use `lazy()` or `try lazy()`. `LazyAsync` and `LazyAsyncThrowable` additionally expose a `.value` property, so `await lazy()` and `await lazy.value` are equivalent (prefix with `try` when the factory throws).
 
 ## Composing Modules
 
@@ -348,4 +365,12 @@ let app = await Assembly.resolved.value
 
 // Later, from any task:
 let db = await Assembly.resolved.value.database
+```
+
+## Playground
+
+A runnable example lives in [`Sources/Playground/main.swift`](Sources/Playground/main.swift). Run it with:
+
+```sh
+swift run Playground
 ```

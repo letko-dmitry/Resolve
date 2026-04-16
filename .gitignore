@@ -9,3 +9,7 @@ DerivedData
 ## SPM
 .swiftpm
 Package.resolved
+
+## Claude
+.claude
+.context
