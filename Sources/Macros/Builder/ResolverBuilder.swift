@@ -262,7 +262,7 @@ private extension ResolverBuilder {
         if registrables.nontransient.isEmpty && performables.all.isEmpty {
             """
             @discardableResult
-            func resolver() -> Resolved {
+            func resolve() -> Resolved {
                 \(resolverReturn())
             }
             """
