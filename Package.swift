@@ -20,7 +20,7 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "git@github.com:swiftlang/swift-syntax.git", from: "601.0.1")
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "601.0.1")
     ],
     targets: [
         .macro(
@@ -83,7 +83,6 @@ private extension Array<SwiftSetting> {
         .approachableConcurrency,
         .existentialAny,
         .internalImportsByDefault,
-        .memberImportVisibility,
-        .strictMemorySafety()
+        .memberImportVisibility
     ]
 }

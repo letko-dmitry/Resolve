@@ -3,6 +3,7 @@
 <p align="left">
 <img src="https://img.shields.io/badge/Swift-6.1%2B-F05138?logo=swift&logoColor=white" alt="Swift 6.1+">
 <img src="https://img.shields.io/badge/Platforms-macOS%2014%2C%20iOS%2017%2C%20watchOS%2010-lightgrey" alt="Platforms">
+<img src="https://img.shields.io/badge/License-MIT-blue" alt="MIT License">
 </p>
 
 A macro-based dependency injection framework for Swift. Declare your dependencies as plain methods, and Resolve generates a thread-safe, concurrent resolver at compile time.
@@ -46,7 +47,7 @@ resolved.database // ready to use
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/letko-dmitry/Resolve.git", branch: "master")
+    .package(url: "https://github.com/letko-dmitry/Resolve.git", from: "1.0.0")
 ]
 ```
 
@@ -374,3 +375,7 @@ A runnable example lives in [`Sources/Playground/main.swift`](Sources/Playground
 ```sh
 swift run Playground
 ```
+
+## License
+
+Resolve is available under the MIT license. See [LICENSE](LICENSE) for details.
