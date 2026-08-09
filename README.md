@@ -47,7 +47,7 @@ resolved.database // ready to use
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/letko-dmitry/Resolve.git", from: "1.0.0")
+    .package(url: "https://github.com/letko-dmitry/Resolve.git", from: "1.1.0")
 ]
 ```
 
