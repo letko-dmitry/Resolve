@@ -114,6 +114,7 @@ public final class LazyAsync<Value: Sendable>: Sendable {
     @inlinable
     @inline(__always)
     public var valueUnwrapped: Value {
+        // swiftlint:disable:next force_unwrapping - unwrapping is the documented contract of this property
         valueIfResolved!
     }
     

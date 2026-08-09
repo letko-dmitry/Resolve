@@ -86,6 +86,7 @@ public final class LazyAsyncThrowable<Value: Sendable>: Sendable {
                 switch current {
                 case .resolvable(let resolvable):
                     let task = Lazy { [state] in
+                        // swiftlint:disable:next unhandled_throwing_task - the error is delivered to whoever awaits task().value
                         Task {
                             let value = try await resolvable()
                             
@@ -142,6 +143,7 @@ public final class LazyAsyncThrowable<Value: Sendable>: Sendable {
     @inlinable
     @inline(__always)
     public var valueUnwrapped: Value {
+        // swiftlint:disable:next force_unwrapping - unwrapping is the documented contract of this property
         valueIfResolved!
     }
     

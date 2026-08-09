@@ -12,7 +12,7 @@ import XCTest
 #if canImport(Macros)
 import Macros
 
-let macros: [String: Macro.Type] = [
+let macros: [String: any Macro.Type] = [
     "Resolvable": Resolvable.self,
     "Register": Register.self
 ]
@@ -21,17 +21,26 @@ let macros: [String: Macro.Type] = [
 final class ResolvableTests: XCTestCase {
     func testMacro() throws {
         #if canImport(Macros)
-        assertMacroExpansion(
-            """
-            @Resolvable
-            struct Container {
-                @Register()
-                func database() async throws -> Database {
-                    return Database()
-                }
+        assertMacroExpansion(Self.source, expandedSource: Self.expanded, macros: macros)
+        #else
+        throw XCTSkip("macros are only supported when running tests for the host platform")
+        #endif
+    }
+}
+
+// MARK: - private
+private extension ResolvableTests {
+    static let source = """
+        @Resolvable
+        struct Container {
+            @Register()
+            func database() async throws -> Database {
+                return Database()
             }
-            """,
-            expandedSource: """
+        }
+        """
+
+    static let expanded = """
             struct Container {
                 func database() async throws -> Database {
                     return Database()
@@ -66,11 +75,5 @@ final class ResolvableTests: XCTestCase {
                     }
                 }
             }
-            """,
-            macros: macros
-        )
-        #else
-        throw XCTSkip("macros are only supported when running tests for the host platform")
-        #endif
-    }
+            """
 }

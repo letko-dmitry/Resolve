@@ -9,7 +9,7 @@ import os.lock
 
 @usableFromInline
 struct Container<Key: Sendable & Hashable>: Sendable {
-    private let values: OSAllocatedUnfairLock<Dictionary<Key, any Sendable>>
+    private let values: OSAllocatedUnfairLock<[Key: any Sendable]>
 
     @usableFromInline
     init(minimumCapacity: Int = 0) {

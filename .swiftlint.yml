@@ -2,12 +2,18 @@
 # RULES URL: https://github.com/realm/SwiftLint/blob/master/Rules.md
 # RULES CONFIG URL: https://github.com/realm/SwiftLint/tree/master/Source/SwiftLintFramework/Rules/RuleConfigurations
 
+included:
+    - Sources
+
+excluded:
+    - .build
+
 disabled_rules: # rule identifiers to exclude from running
     # String enum values can be omitted when they are equal to the enumcase name
     - redundant_string_enum_value
 
     # Operators should be surrounded by a single whitespace when defining them.
-    - operator_whitespace
+    - function_name_whitespace
 
     # since 0.38.2
     - orphaned_doc_comment # weird false-positives
@@ -156,7 +162,6 @@ lower_acl_than_parent: error
 closure_spacing: error
 explicit_init:
     severity: error
-private_outlet: error
 private_action: error
 convenience_type: error
 vertical_whitespace_opening_braces: error
@@ -173,11 +178,9 @@ function_body_length:
 trailing_whitespace:
     ignores_empty_lines: true
     ignores_comments: true
-    ignores_urls: true
 
 nesting:
     type_level: 3
-    severity: error
 
 private_outlet:
     allow_private_set: true
@@ -193,7 +196,6 @@ line_length:
 
 identifier_name:
     min_length: 1
-    severity: error
 
 type_name:
     max_length:

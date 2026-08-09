@@ -6,7 +6,7 @@
 //
 
 @resultBuilder
-struct StringCollectionBuilder {
+enum StringCollectionBuilder {
     static func buildBlock(_ components: [String]...) -> [String] {
         buildArray(components)
     }
