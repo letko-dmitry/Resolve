@@ -18,75 +18,44 @@ struct ResolverBuilder {
     struct Declaration {
         let name: TokenSyntax = "resolvable"
         let type: TokenSyntax
+        let access: String
     }
-    
+
     let declaration: Declaration
     let performables: Performables
     let registrables: Registrables
     let registrar: Registrar = .init()
-    
+
     func build() -> DeclSyntax {
-        func resolver(_ body: () -> MemberBlockItemListSyntax) -> DeclSyntax {
-            return """
-            struct Resolver: Sendable {
-            \(body())
-            }
-            """
+        let members = MemberBlockItemListSyntax(separator: "\n\n") {
+            variables().description
+            registrableGetters().description
+            resolverInit().description
+            performableMethods().description
+            resolve().description
         }
-        
-        return resolver {
-            if registrables.all.isEmpty && performables.all.isEmpty {
-                return """
-                    \(containerVariable())
-                
-                    \(resolverInit())
-                            
-                    \(resolve())
-                """
-            } else if registrables.all.isEmpty {
-                return """
-                    \(registrarVariable())
-                    \(containerVariable())
 
-                    \(resolverInit())
-
-                    \(performableMethods())
-                
-                    \(resolve())
-                """
-            } else if performables.all.isEmpty {
-                return """
-                    \(registrarVariable())
-                    \(containerVariable())
-
-                    \(registrableGetters())
-                
-                    \(resolverInit())
-
-                    \(resolve())
-                """
-            } else {
-                return """
-                    \(registrarVariable())
-                    \(containerVariable())
-
-                    \(registrableGetters())
-                
-                    \(resolverInit())
-
-                    \(performableMethods())
-                
-                    \(resolve())
-                """
-            }
+        return """
+        \(raw: declaration.access)struct Resolver: Sendable {
+            \(members)
         }
+        """
     }
 }
 
 // MARK: - private
 private extension ResolverBuilder {
+    func variables() -> MemberBlockItemListSyntax {
+        MemberBlockItemListSyntax(separator: "\n") {
+            registrarVariable().description
+            containerVariable().description
+        }
+    }
+
     func registrarVariable() -> MemberBlockItemListSyntax {
-        "private let _\(registrar.name) = \(registrar.type)(for: \(declaration.type).self, minimumCapacity: \(raw: (performables.all.count &+ registrables.all.count).description))"
+        guard !registrables.all.isEmpty || !performables.all.isEmpty else { return "" }
+
+        return "private let _\(registrar.name) = \(registrar.type)(for: \(declaration.type).self, minimumCapacity: \(raw: (performables.all.count &+ registrables.all.count).description))"
     }
     
     func containerVariable() -> MemberBlockItemListSyntax {
@@ -95,7 +64,7 @@ private extension ResolverBuilder {
     
     func resolverInit() -> MemberBlockItemListSyntax {
         """
-        init(_ \(declaration.name): \(declaration.type)) {
+        \(raw: declaration.access)init(_ \(declaration.name): \(declaration.type)) {
             self._\(declaration.name) = \(declaration.name)
         }
         """
@@ -122,15 +91,15 @@ private extension ResolverBuilder {
                 
                 var register: ExprSyntax {
                     if let options = registrable.attribute.options {
-                        "register(for: \"\(registrable.name)\", options: \(options))"
+                        "register(for: \"\(raw: registrable.name.unescaped)\", options: \(options))"
                     } else {
-                        "register(for: \"\(registrable.name)\")"
+                        "register(for: \"\(raw: registrable.name.unescaped)\")"
                     }
                 }
                 
                 if registrable.function.throwable {
                     """
-                    var \(registrable.name): \(registrable.function.type) {
+                    \(declaration.access)var \(registrable.name): \(registrable.function.type) {
                         get async throws {
                             try await _\(registrar.name).\(register) {
                                 \(functionCall)
@@ -140,7 +109,7 @@ private extension ResolverBuilder {
                     """
                 } else {
                     """
-                    var \(registrable.name): \(registrable.function.type) {
+                    \(declaration.access)var \(registrable.name): \(registrable.function.type) {
                         get async {
                             await _\(registrar.name).\(register) {
                                 \(functionCall)
@@ -182,15 +151,15 @@ private extension ResolverBuilder {
                 
                 var register: ExprSyntax {
                     if let options = performable.attribute.options {
-                        "register(for: \"\(performable.name)\", options: \(options))"
+                        "register(for: \"\(raw: performable.name.unescaped)\", options: \(options))"
                     } else {
-                        "register(for: \"\(performable.name)\")"
+                        "register(for: \"\(raw: performable.name.unescaped)\")"
                     }
                 }
                 
                 if performable.function.throwable {
                     """
-                    func \(performable.name)() async throws {
+                    \(declaration.access)func \(performable.name)() async throws {
                         try await _\(registrar.name).\(register) {
                             \(functionCall)
                         }
@@ -198,7 +167,7 @@ private extension ResolverBuilder {
                     """
                 } else {
                     """
-                    func \(performable.name)() async {
+                    \(declaration.access)func \(performable.name)() async {
                         await _\(registrar.name).\(register) {
                             \(functionCall)
                         }
@@ -246,7 +215,7 @@ private extension ResolverBuilder {
             """
         } else {
             let arguments = registrables.nontransient.map { registrable in
-                "\(registrable.name): \(registrable.name)"
+                "\(registrable.name.unescaped): \(registrable.name)"
             }
             
             """
@@ -262,30 +231,30 @@ private extension ResolverBuilder {
         if registrables.nontransient.isEmpty && performables.all.isEmpty {
             """
             @discardableResult
-            func resolve() -> Resolved {
+            \(raw: declaration.access)func resolve() -> Resolved {
                 \(resolverReturn())
             }
             """
         } else if registrables.nontransient.isEmpty {
             """
             @discardableResult
-            func resolve() async \(raw: throwablePerformables ? "throws " : "")-> Resolved {
+            \(raw: declaration.access)func resolve() async \(raw: throwablePerformables ? "throws " : "")-> Resolved {
                 \(performableTasks())
-            
+
                 \(resolverReturn())
             }
             """
         } else if performables.all.isEmpty {
             """
-            func resolve() async \(raw: throwableRegistrables ? "throws " : "")-> Resolved {
+            \(raw: declaration.access)func resolve() async \(raw: throwableRegistrables ? "throws " : "")-> Resolved {
                 \(registrableVariables())
-            
+
                 \(resolverReturn())
             }
             """
         } else {
             """
-            func resolve() async \(raw: (throwablePerformables || throwableRegistrables) ? "throws " : "")-> Resolved {
+            \(raw: declaration.access)func resolve() async \(raw: (throwablePerformables || throwableRegistrables) ? "throws " : "")-> Resolved {
                 \(registrableVariables())
             
                 \(performableTasks())
