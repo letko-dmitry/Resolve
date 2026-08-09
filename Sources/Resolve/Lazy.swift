@@ -41,6 +41,12 @@ import os.lock
  - Note: Because the operation is invoked under a lock, it should be cheap and
    non-blocking. Performing long synchronous work inside the closure will
    stall every concurrent reader.
+
+ - Warning: The lock is **not** recursive. An operation that reaches back into
+   the same `Lazy` — directly, or through anything that ends up calling it —
+   deadlocks the thread, which `os_unfair_lock` reports by aborting the
+   process rather than by hanging. Do not call the wrapper from inside its
+   own operation.
  */
 public struct Lazy<Value: Sendable>: Sendable {
     private let state: OSAllocatedUnfairLock<State>
@@ -89,4 +95,3 @@ private extension Lazy {
         case loaded(Value)
     }
 }
-

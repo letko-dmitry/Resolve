@@ -37,6 +37,12 @@ import os.lock
  ```
 
  - Note: The factory runs under an unfair lock. Keep it cheap.
+
+ - Warning: The lock is **not** recursive. A factory that reaches back into
+   the same `LazyThrowable` — directly, or through anything that ends up
+   calling it — deadlocks the thread, which `os_unfair_lock` reports by
+   aborting the process rather than by hanging. Do not call the wrapper from
+   inside its own factory.
  */
 public struct LazyThrowable<Value: Sendable>: Sendable {
     private let state: OSAllocatedUnfairLock<State>

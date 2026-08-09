@@ -45,7 +45,6 @@
      let thirdParty: AssemblySystemThirdParty.Resolver
 
      @Register
-     @concurrent
      func database() async throws -> any AbstractCoreDataStack {
          try await CoreDataStackBuilder(/* … */).make()
      }
@@ -63,17 +62,42 @@
  ```
 
  - Parameter sort: When `true` (the default) the generated `Resolved`
-   properties and `async let` bindings are emitted in alphabetical order of
-   the method name. Set to `false` to keep declaration order. Either choice
-   produces the same runtime behaviour because every registration is awaited
-   concurrently — `sort` is purely a cosmetic / diff-stability knob for the
-   generated source.
+   properties and `async let` bindings are emitted in alphabetical order of the
+   *registration* name — the `name:` override when present, otherwise the
+   function name. Set to `false` to keep declaration order. The choice changes
+   the order of the stored properties on `Resolved`, and with it the order of
+   the memberwise initialiser; it does not change what is built or when,
+   because every registration is awaited concurrently either way. The argument
+   must be a boolean literal — anything else is ignored with a warning.
 
- - Important: The macro must be attached to a `struct` or `class`. An
-   `extension` is rejected at expansion time with an explicit diagnostic;
-   attaching to other named nominal types (enum, actor, protocol) is not
-   supported and will produce code that does not compile, even though the
-   macro itself will not refuse the input.
+ - Important: The macro must be attached to a `struct` or `class`. Every other
+   declaration — an `extension`, an `enum`, an `actor`, a `protocol` — is
+   rejected at expansion time with an explicit diagnostic.
+
+ - Important: Only functions declared directly in the body of the annotated type
+   are inspected. A `Register` or `Perform` placed in an extension, inside a
+   nested type, or on a top-level function expands to nothing, and the macro
+   warns at the attribute rather than dropping the dependency silently. Members
+   wrapped in `#if` are still skipped without a warning.
+
+ - Important: A registration must never call a sibling registration as a plain
+   method — neither `sibling()` nor `self.sibling()`. Doing so bypasses the
+   cache, builds the dependency a second time and defeats
+   `Registrar.Options.once`, so it is rejected with a fix-it that rewrites the
+   call to go through a `Resolver` parameter. Calling a same-named *local*
+   function, or the same method on a different instance, is left alone.
+
+ - Important: `Resolved` and `Resolver` repeat the access level of the container,
+   so a `public` container produces types other modules can name. A `public`
+   container must also be explicitly `Sendable`: public types get no implicit
+   conformance, and `Resolver` stores one. A registration may not be called
+   `resolve`, `Resolved`, `Resolver`, `_registrar` or `_resolvable` — those
+   names are taken by the generated members.
+
+ - Note: `resolve()` is marked `@discardableResult` only when `Resolved` would
+   be empty — that is, when the container declares no non-transient
+   `Register`. Otherwise the aggregate carries the dependencies you asked for
+   and discarding it is almost certainly a mistake.
  */
 @attached(member, names: named(Resolved), named(Resolver))
 public macro Resolvable(sort: Bool = true) = #externalMacro(module: "Macros", type: "Resolvable")
@@ -88,18 +112,43 @@ public macro Resolvable(sort: Bool = true) = #externalMacro(module: "Macros", ty
 
  ## Method requirements
 
- - Must declare a return type. The return type becomes the type of the
-   property on `Resolved`.
+ - Must declare a return type, and a concrete one: an opaque `some P` cannot be
+   a stored property of `Resolved` and is rejected.
+ - Must be an instance method. `static`, `class`, `mutating` and generic
+   declarations are rejected — the generated code reaches the factory through a
+   stored instance of the container.
  - May be `async`, `throws`, or both. Effects are propagated transparently
    into the generated getter and `resolve()`.
  - May take **at most one** parameter, and only of type `Resolver`. The
    generated code passes `self` (the `Resolver` itself) so the method can pull
    sibling registrations from the same container.
 
+ Every generated getter is `async`, whatever the factory looks like. A factory
+ that reads `resolver.somethingElse` is therefore `async` as well, and
+ `async throws` when the sibling it reads can throw.
+
+ ## Isolation
+
+ Isolation annotations describe **the factory**, and the macro never copies them
+ onto the generated property or method. That is deliberate: the accessor exists
+ to hand back an already-built `Sendable` value, so pinning it to an actor would
+ constrain every reader for no reason. The macro reads `@MainActor` for exactly
+ one purpose — deciding whether the generated call needs `await` — and reads
+ nothing else. A factory isolated to some other global actor will not compile;
+ mark it `async` instead.
+
+ `@concurrent` (Swift 6.2) is likewise the factory's business. This package
+ builds with approachable concurrency, so a `nonisolated async` function
+ *inherits its caller's isolation* — `await` alone does **not** hop off the
+ actor. Annotate a factory with `@concurrent` when its body does heavy
+ synchronous work that must not run on a caller that is on `MainActor`. It costs
+ an executor hop, so leave it off for plain construction.
+
  ## Examples
 
  ```swift
- // Per-Resolver lifetime, no dependencies on siblings.
+ // Per-Resolver lifetime, no dependencies on siblings. `@concurrent` because
+ // opening the stack does heavy synchronous work the caller must not absorb.
  @Register
  @concurrent
  func database() async throws -> any AbstractCoreDataStack { … }
@@ -127,10 +176,13 @@ public macro Resolvable(sort: Bool = true) = #externalMacro(module: "Macros", ty
       `Resolved` aggregate is renamed to match, and the internal `Registrar`
       cache uses the same string as its key. Use this to decouple the public
       surface of the generated `Resolver` / `Resolved` from the underlying
-      factory function name.
+      factory function name. The argument must be a **string literal** holding a
+      legal Swift identifier — it is spliced into a property declaration. A
+      non-literal is ignored with a warning; an illegal identifier is an error.
     - options: `Registrar.Options` controlling cache scope. Use
       `Registrar.Options.once` for application-lifetime singletons; otherwise
-      leave at `Registrar.Options.default`.
+      leave at `Registrar.Options.default`. The expression is re-evaluated on
+      every access, so it must be constant for a given registration.
 
  - SeeAlso: `RegisterTransient`, `Perform`, `Resolvable`.
  */
@@ -160,7 +212,6 @@ public macro Register(name: String? = nil, options: Registrar.Options = .default
 
      // Public dependency that other modules consume.
      @Register
-     @concurrent
      func core(_ resolver: Resolver) async throws -> AssemblySystemCore.Resolved {
          try await resolver.coreResolver.resolve()
      }
@@ -222,6 +273,7 @@ public macro RegisterTransient(name: String? = nil, options: Registrar.Options =
  struct AssemblySystemThirdParty {
      let identificator: AssemblyEssentialIdentificator
 
+     // `@concurrent` keeps a third-party initialiser off the caller's actor.
      @Perform(options: .once)
      @concurrent
      func firebase() async {

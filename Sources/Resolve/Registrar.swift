@@ -35,8 +35,7 @@ public struct Registrar: Sendable {
 
      Pass these as the `options:` argument of `Register`, `RegisterTransient`
      or `Perform`. Prefer the static presets `Options.default` and
-     `Options.once`; use the initializer only when you need to forward a
-     Boolean flag from configuration.
+     `Options.once`.
      */
     public struct Options: Sendable {
         /**
@@ -53,8 +52,14 @@ public struct Registrar: Sendable {
          Creates an `Options` value.
 
          Prefer the static presets `Options.default` and `Options.once`.
-         Construct directly only when you need a derived value (for example
-         to forward a flag from configuration).
+
+         - Warning: The generated getter re-evaluates the `options:` expression
+           on every access, and the value decides *which* container answers.
+           Deriving it from something that can change — a runtime flag, a
+           configuration lookup — sends the same registration to the local
+           container on one access and to the process-wide one on the next,
+           producing two live values under one name. Whatever you pass must be
+           constant for the lifetime of the registration.
 
          - Parameter once: Cache scope. See the `once` stored property for
            the meaning.
