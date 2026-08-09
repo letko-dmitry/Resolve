@@ -61,19 +61,32 @@ extension Registrable {
 // MARK: - Registrable.Function
 extension Registrable.Function {
     static func parse(function: FunctionDeclSyntax, in context: some MacroExpansionContext) -> Registrable.Function? {
+        let shapeOk = ValidationFunctionShape.validate(function, in: context)
         let type: TypeSyntax?
-        
+
         if let returnClause = function.signature.returnClause {
-            type = returnClause.type.trimmed
+            if returnClause.type.opaque {
+                type = nil
+
+                let message = MacroExpansionErrorMessage("An opaque return type cannot be stored on `Resolved` – return `any` or the concrete type instead")
+                let diagnostic = Diagnostic(
+                    node: returnClause.type,
+                    message: message
+                )
+
+                context.diagnose(diagnostic)
+            } else {
+                type = returnClause.type.trimmed
+            }
         } else {
             type = nil
-            
-            let message = MacroExpansionErrorMessage("There must be a return type")
+
+            let message = MacroExpansionErrorMessage("There must be a return type – use `@Perform` for a method that only produces side effects")
             let diagnostic = Diagnostic(
-                node: function,
+                node: function.signature,
                 message: message
             )
-            
+
             context.diagnose(diagnostic)
         }
         
@@ -88,17 +101,17 @@ extension Registrable.Function {
             parameterOk = false
             
             if let error = error as? Parameter.ParseError {
-                let message = MacroExpansionErrorMessage("We do not expect any parameters except the one of type `Resolver`")
+                let message = MacroExpansionErrorMessage(error.kind.message)
                 let diagnostic = Diagnostic(
                     node: error.node,
                     message: message
                 )
-                
+
                 context.diagnose(diagnostic)
             }
         }
-        
-        guard let type, parameterOk else { return nil }
+
+        guard let type, parameterOk, shapeOk else { return nil }
         
         return .init(
             name: function.name,
@@ -113,25 +126,21 @@ extension Registrable.Function {
 // MARK: - Registrable.Function.Parameter
 extension Registrable.Function.Parameter {
     struct ParseError: @unchecked Sendable, Error {
-        enum Kind {
-            case count
-            case type
-            case syntax
-        }
-        
+        typealias Kind = ValidationResolverParameter
+
         let kind: Kind
         let node: Syntax
-        
+
         init(kind: Kind, node: some SyntaxProtocol) {
             self.kind = kind
             self.node = Syntax(node)
         }
     }
-    
+
     static func parse(parameters: FunctionParameterListSyntax, in context: some MacroExpansionContext) throws -> Registrable.Function.Parameter? {
         guard !parameters.isEmpty else { return nil }
         guard let first = parameters.first, parameters.count == 1 else { throw ParseError(kind: .count, node: parameters) }
-        guard first.type.description == "Resolver" else { throw ParseError(kind: .type, node: first) }
+        guard first.type.identifier == "Resolver" else { throw ParseError(kind: .type, node: first) }
         
         switch first.firstName.tokenKind {
         case .wildcard:

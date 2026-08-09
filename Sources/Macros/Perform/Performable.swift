@@ -56,36 +56,43 @@ extension Performable {
 // MARK: - Performable.Function
 extension Performable.Function {
     static func parse(function: FunctionDeclSyntax, in context: some MacroExpansionContext) -> Performable.Function? {
-        guard function.signature.returnClause == nil else {
-            let message = MacroExpansionErrorMessage("There must be a return type")
+        let shapeOk = ValidationFunctionShape.validate(function, in: context)
+        let returnOk: Bool
+
+        if let returnClause = function.signature.returnClause {
+            returnOk = false
+
+            let message = MacroExpansionErrorMessage("There must be no return type – use `@Register` to expose the produced value")
             let diagnostic = Diagnostic(
-                node: function,
+                node: returnClause,
                 message: message
             )
-            
+
             context.diagnose(diagnostic)
-            
-            return nil
+        } else {
+            returnOk = true
         }
-        
+
         let parameter: Parameter?
-        
+
         do {
             parameter = try .parse(parameters: function.signature.parameterClause.parameters, in: context)
         } catch {
             if let error = error as? Parameter.ParseError {
-                let message = MacroExpansionErrorMessage("We do not expect any parameters except the one of type `Resolver`")
+                let message = MacroExpansionErrorMessage(error.kind.message)
                 let diagnostic = Diagnostic(
                     node: error.node,
                     message: message
                 )
-                
+
                 context.diagnose(diagnostic)
             }
-            
+
             return nil
         }
-        
+
+        guard shapeOk, returnOk else { return nil }
+
         return .init(
             name: function.name,
             parameter: parameter,
@@ -98,25 +105,21 @@ extension Performable.Function {
 // MARK: - Performable.Function.Parameter
 extension Performable.Function.Parameter {
     struct ParseError: @unchecked Sendable, Error {
-        enum Kind {
-            case count
-            case type
-            case syntax
-        }
-        
+        typealias Kind = ValidationResolverParameter
+
         let kind: Kind
         let node: Syntax
-        
+
         init(kind: Kind, node: some SyntaxProtocol) {
             self.kind = kind
             self.node = Syntax(node)
         }
     }
-    
+
     static func parse(parameters: FunctionParameterListSyntax, in context: some MacroExpansionContext) throws -> Performable.Function.Parameter? {
         guard !parameters.isEmpty else { return nil }
         guard let first = parameters.first, parameters.count == 1 else { throw ParseError(kind: .count, node: parameters) }
-        guard first.type.description == "Resolver" else { throw ParseError(kind: .type, node: first) }
+        guard first.type.identifier == "Resolver" else { throw ParseError(kind: .type, node: first) }
         
         switch first.firstName.tokenKind {
         case .wildcard:

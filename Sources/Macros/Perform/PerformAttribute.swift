@@ -21,7 +21,7 @@ extension PerformAttribute {
     }
     
     static func parse(_ node: AttributeSyntax) -> PerformAttribute? {
-        switch node.attributeName.description {
+        switch node.attributeName.identifier {
         case "Perform":
             return .parse(arguments: node.arguments)
             
@@ -52,7 +52,7 @@ extension PerformAttribute {
         guard let candidate = candidates.first else { return nil }
         
         if candidates.count > 1 {
-            let message = MacroExpansionWarningMessage("We do not expect more that one attribute – the first one is taken")
+            let message = MacroExpansionWarningMessage("We do not expect more than one attribute – the first one is taken")
             let drop = Set(candidates.dropFirst().map { $0.node })
             let new = attributes.filter { element in
                 if let attribute = element.as(AttributeSyntax.self) {
