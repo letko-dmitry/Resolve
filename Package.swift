@@ -1,4 +1,4 @@
-// swift-tools-version: 6.1
+// swift-tools-version: 6.3
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -20,12 +20,16 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "601.0.1")
+        .package(url: "https://github.com/apple/swift-algorithms.git", from: "1.2.1"),
+        .package(url: "https://github.com/apple/swift-collections.git", from: "1.6.0"),
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.2")
     ],
     targets: [
         .macro(
             name: "Macros",
             dependencies: [
+                .product(name: "Algorithms", package: "swift-algorithms"),
+                .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
                 .product(name: "SwiftDiagnostics", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax"),
@@ -83,6 +87,7 @@ private extension Array<SwiftSetting> {
         .approachableConcurrency,
         .existentialAny,
         .internalImportsByDefault,
-        .memberImportVisibility
+        .memberImportVisibility,
+        .strictMemorySafety()
     ]
 }
