@@ -19,7 +19,7 @@ struct Registrables {
         let all = sort ? all.sorted(using: SortDescriptor(\.name.text)) : all
         
         self.all = all
-        self.nontransient = all.filter { !$0.attribute.transient }
+        self.nontransient = all.filter { $0.attribute.kind != .transient }
     }
 }
 
@@ -42,6 +42,10 @@ struct Registrable {
     
     var name: TokenSyntax {
         attribute.name ?? function.name
+    }
+
+    var hidden: Bool {
+        attribute.kind == .hidden
     }
 }
 

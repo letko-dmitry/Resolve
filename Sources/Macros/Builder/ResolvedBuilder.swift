@@ -18,17 +18,46 @@ struct ResolvedBuilder {
             \(raw: access)struct Resolved: Sendable { }
             """
         } else {
-            let properties = MemberBlockItemListSyntax(separator: "\n") {
+            let members = MemberBlockItemListSyntax(separator: "\n") {
                 for registrable in registrables.nontransient {
-                    "\(access)let \(registrable.name): \(registrable.function.type)"
+                    if registrable.hidden {
+                        "private let \(registrable.name): \(registrable.function.type)"
+                    } else {
+                        "\(access)let \(registrable.name): \(registrable.function.type)"
+                    }
                 }
+
+                initializer()
             }
 
             return """
             \(raw: access)struct Resolved: Sendable {
-                \(properties)
+                \(members)
             }
             """
         }
+    }
+}
+
+// MARK: - private
+private extension ResolvedBuilder {
+    func initializer() -> String {
+        guard registrables.nontransient.contains(where: \.hidden) else { return "" }
+
+        let parameters = registrables.nontransient.map { registrable in
+            "\(registrable.name): \(registrable.function.type)"
+        }
+        let assignments = registrables.nontransient.map { registrable in
+            "self.\(registrable.name) = \(registrable.name)"
+        }
+
+        return [
+            "",
+            "init(",
+            "    " + parameters.joined(separator: ",\n    "),
+            ") {",
+            "    " + assignments.joined(separator: "\n    "),
+            "}"
+        ].joined(separator: "\n")
     }
 }

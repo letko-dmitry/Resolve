@@ -10,12 +10,14 @@
  two nested types at compile time:
 
  - `Resolved` — a `Sendable` value-type aggregate of every dependency that
-   was registered with `Register` (transient registrations are intentionally
-   excluded). Once `Resolver.resolve()` returns, callers reach individual
-   services through this aggregate.
+   was registered with `Register` or `Keep` (transient registrations are
+   intentionally excluded). Once `Resolver.resolve()` returns, callers reach
+   individual services through this aggregate — every one of them but a `Keep`,
+   which is stored as a `private` property and only kept alive.
  - `Resolver` — a `Sendable` façade that wraps the original container instance
    and exposes:
-     * one async getter per `Register` / `RegisterTransient` declaration,
+     * one async getter per `Register` / `RegisterTransient` / `Keep`
+       declaration,
      * one async method per `Perform` declaration,
      * a `resolve()` method that brings up the whole graph and returns a
        `Resolved` value.
@@ -184,7 +186,7 @@ public macro Resolvable(sort: Bool = true) = #externalMacro(module: "Macros", ty
       leave at `Registrar.Options.default`. The expression is re-evaluated on
       every access, so it must be constant for a given registration.
 
- - SeeAlso: `RegisterTransient`, `Perform`, `Resolvable`.
+ - SeeAlso: `RegisterTransient`, `Keep`, `Perform`, `Resolvable`.
  */
 @attached(peer)
 public macro Register(name: String? = nil, options: Registrar.Options = .default) = #externalMacro(module: "Macros", type: "Register")
@@ -241,10 +243,73 @@ public macro Register(name: String? = nil, options: Registrar.Options = .default
    `Resolver` (e.g. `resolver.coreResolver`). They are simply omitted from
    `Resolved`. Treat them as private wiring helpers.
 
- - SeeAlso: `Register`, `Perform`, `Resolvable`.
+ - SeeAlso: `Register`, `Keep`, `Perform`, `Resolvable`.
  */
 @attached(peer)
 public macro RegisterTransient(name: String? = nil, options: Registrar.Options = .default) = #externalMacro(module: "Macros", type: "Register")
+
+/**
+ Registers a method as a dependency factory whose result is stored on the
+ generated `Resolved` aggregate as a **private** property.
+
+ This is `Register` with the reading end taken away. The value is built during
+ `resolve()` exactly like any other registration, and it is held for as long as
+ the `Resolved` value is held — but nothing outside `Resolved` can read it, so
+ the dependency exists only to stay alive.
+
+ Reach for it when the *lifetime* is the whole point and the value has no
+ callers: an observer that only has to remain subscribed, a monitor that pushes
+ rather than answers, a controller that wires itself up in its initialiser.
+ `RegisterTransient` cannot do this — a transient value is cached on the
+ `Resolver` and dropped from `Resolved`, so it dies with the resolver rather
+ than with the graph the app holds.
+
+ The method has the same shape requirements as `Register`: a return type,
+ zero or one `Resolver` parameter, and any combination of `async`/`throws`.
+
+ ## Example
+
+ ```swift
+ @Resolvable
+ struct AssemblySystem {
+     @Register
+     func database() async throws -> any AbstractCoreDataStack {
+         try await CoreDataStackBuilder().make()
+     }
+
+     // Subscribes in its initialiser and never answers a question. Nothing
+     // reads it; `Resolved` holding it is what keeps the subscription alive.
+     @Keep
+     func databaseObserver(_ resolver: Resolver) async throws -> DatabaseObserver {
+         try await DatabaseObserver(database: resolver.database)
+     }
+ }
+ ```
+
+ - Parameters:
+    - name: Optional override for the registration identifier. Identical
+      semantics to `Register(name:)` — it renames the property on `Resolved`
+      (still `private`) and the getter on `Resolver`, and becomes the cache key.
+    - options: `Registrar.Options` controlling cache scope.
+
+ - Important: Only the property on `Resolved` is private. The getter on the
+   generated `Resolver` keeps the container's access level, exactly like
+   `RegisterTransient`, so sibling factories can still reach the value through
+   `resolver.<name>`.
+
+ - Important: A container with at least one `Keep` gets an explicit initialiser
+   on `Resolved` instead of the implicit memberwise one, because a `private`
+   stored property would otherwise make that initialiser `private` too. It is
+   internal, which is the visibility the memberwise initialiser had anyway.
+
+ - Note: `resolve()` is not `@discardableResult` for a container whose only
+   registrations are `Keep`. Discarding the returned `Resolved` is precisely
+   what would release the dependencies it was asked to hold.
+
+ - SeeAlso: `Register`, `RegisterTransient`, `Resolvable`.
+ */
+@attached(peer)
+public macro Keep(name: String? = nil, options: Registrar.Options = .default) = #externalMacro(module: "Macros", type: "Register")
 
 /**
  Marks a method as a side-effect-only step that runs as part of resolution.
@@ -292,7 +357,7 @@ public macro RegisterTransient(name: String? = nil, options: Registrar.Options =
    `Registrar.Options.once` for setups that must happen exactly once per
    process (e.g. `FirebaseApp.configure`).
 
- - SeeAlso: `Register`, `RegisterTransient`, `Resolvable`.
+ - SeeAlso: `Register`, `RegisterTransient`, `Keep`, `Resolvable`.
  */
 @attached(peer)
 public macro Perform(options: Registrar.Options = .default) = #externalMacro(module: "Macros", type: "Perform")

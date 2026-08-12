@@ -65,7 +65,7 @@ dependencies: [
 The `@Resolvable` macro generates two nested types from your container:
 
 - **`Resolver`** -- a facade that exposes each `@Register` as an async property and each `@Perform` as an async method. Calling `resolve()` builds the entire dependency graph.
-- **`Resolved`** -- an immutable, `Sendable` aggregate holding all resolved dependencies. This is what you pass around your app.
+- **`Resolved`** -- an immutable, `Sendable` aggregate holding all resolved dependencies. This is what you pass around your app. A `@Keep` registration is in there too, as a `private` property: held for as long as you hold `Resolved`, readable by nobody.
 
 All non-transient registrations start concurrently via `async let`. All `@Perform` steps run in parallel inside a task group. Dependencies that reference siblings through `Resolver` naturally await each other, forming an implicit DAG -- and a cycle among them is rejected at compile time rather than deadlocking at runtime.
 
@@ -209,6 +209,41 @@ struct WiringAssembly {
 }
 ```
 
+### @Keep
+
+Same as `@Register`, but the property on `Resolved` is **`private`**. The value is built during `resolve()` and lives as long as `Resolved` does; nothing can read it back.
+
+Use it when the lifetime is the point and the value answers no questions -- an observer that only has to stay subscribed, a monitor that pushes rather than responds, a controller that wires itself up in its initialiser. `@RegisterTransient` is not a substitute: a transient value is cached on the `Resolver` and absent from `Resolved`, so it dies with the resolver instead of with the graph your app holds on to.
+
+```swift
+@Resolvable
+struct Services {
+    @Register
+    func database() async throws -> Database {
+        try await Database.open(path: "app.db")
+    }
+
+    // Subscribes in its initialiser. Nobody reads it -- `Resolved` holding it
+    // is the whole reason the subscription stays alive.
+    @Keep
+    func databaseObserver(_ resolver: Resolver) async throws -> DatabaseObserver {
+        try await DatabaseObserver(database: resolver.database)
+    }
+}
+
+let resolved = try await Services.Resolver(.init()).resolve()
+
+resolved.database        // fine
+resolved.databaseObserver // error: 'databaseObserver' is inaccessible due to 'private' protection level
+```
+
+Only the `Resolved` property is hidden. The getter on `Resolver` keeps the container's access level, exactly like `@RegisterTransient`, so siblings can still depend on a kept value through `resolver.<name>`.
+
+Two consequences of that `private`:
+
+- `Resolved` gets an explicit initialiser instead of the implicit memberwise one -- a `private` stored property would otherwise drag the memberwise initialiser down to `private` as well, out of reach of the `resolve()` that has to call it. It is internal, which is what the memberwise initialiser was anyway.
+- `resolve()` is **not** `@discardableResult` on a container whose only registrations are `@Keep`. Throwing the result away is exactly what would release what you asked to keep.
+
 ### @Perform
 
 Marks a side-effect-only step with **no return value**. Runs during `resolve()` in parallel with other performables. Same shape rules as `@Register`, minus the return type, and without a `name:` override.
@@ -253,7 +288,7 @@ struct ThirdParty {
 
 ## Cache Scope
 
-Every `@Register`, `@RegisterTransient`, and `@Perform` accepts an `options` parameter:
+Every `@Register`, `@RegisterTransient`, `@Keep`, and `@Perform` accepts an `options` parameter:
 
 | Option | Lifetime | Use case |
 |---|---|---|

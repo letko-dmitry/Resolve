@@ -11,23 +11,32 @@ import SwiftDiagnostics
 import SwiftSyntaxBuilder
 
 struct RegisterAttribute {
+    enum Kind {
+        case standard
+        case transient
+        case hidden
+    }
+
     let name: TokenSyntax?
     let options: ExprSyntax?
-    let transient: Bool
+    let kind: Kind
 }
 
 extension RegisterAttribute {
     struct Candidate {
-        let transient: Bool
+        let kind: Kind
         let node: AttributeSyntax
 
         init?(node: AttributeSyntax) {
             switch node.attributeName.identifier {
             case "Register":
-                transient = false
+                kind = .standard
 
             case "RegisterTransient":
-                transient = true
+                kind = .transient
+
+            case "Keep":
+                kind = .hidden
 
             default:
                 return nil
@@ -85,7 +94,7 @@ private extension RegisterAttribute {
         return .init(
             name: name(in: arguments, in: context),
             options: arguments?.expression(name: "options"),
-            transient: candidate.transient
+            kind: candidate.kind
         )
     }
 

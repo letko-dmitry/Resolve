@@ -33,8 +33,8 @@ public struct Registrar: Sendable {
     /**
      Controls how long a registered value is cached.
 
-     Pass these as the `options:` argument of `Register`, `RegisterTransient`
-     or `Perform`. Prefer the static presets `Options.default` and
+     Pass these as the `options:` argument of `Register`, `RegisterTransient`,
+     `Keep` or `Perform`. Prefer the static presets `Options.default` and
      `Options.once`.
      */
     public struct Options: Sendable {
@@ -119,7 +119,7 @@ public struct Registrar: Sendable {
           share global state even if their registration names collide.
         - minimumCapacity: A hint that pre-sizes the underlying dictionary to
           avoid rehashing during the first burst of registrations. The
-          generated code passes the total number of `@Register*` and
+          generated code passes the total number of registration and
           `@Perform` declarations on the container.
      */
     @inlinable
@@ -133,8 +133,8 @@ public struct Registrar: Sendable {
      concurrent callers share a single in-flight resolution.
 
      This is the throwing entry point used by code generated from `@Register`,
-     `@RegisterTransient`, and `@Perform` declarations on functions that are
-     `async throws`.
+     `@RegisterTransient`, `@Keep`, and `@Perform` declarations on functions
+     that are `async throws`.
 
      - Parameters:
         - name: The registration key. The generated code uses the function
@@ -159,7 +159,7 @@ public struct Registrar: Sendable {
      concurrent callers share a single in-flight resolution.
 
      Same semantics as the throwing overload, but used by code generated for
-     `@Register`, `@RegisterTransient`, and `@Perform` declarations on
+     `@Register`, `@RegisterTransient`, `@Keep`, and `@Perform` declarations on
      functions that are `async` only.
 
      - Parameters:
