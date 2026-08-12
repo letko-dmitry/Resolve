@@ -220,7 +220,7 @@ private extension ResolverBuilder {
             
             """
             return \(raw: throwableRegistrables ? "try " : "")await .init(
-                \(raw: arguments.joined(separator: ",\n\t"))
+                \(raw: arguments.joined(separator: ",\n    "))
             )
             """
         }
