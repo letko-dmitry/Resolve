@@ -23,7 +23,7 @@ struct RegisterAttribute {
 }
 
 extension RegisterAttribute {
-    struct Candidate {
+    struct Candidate: AttributeCandidate {
         let kind: Kind
         let node: AttributeSyntax
 
@@ -47,40 +47,7 @@ extension RegisterAttribute {
     }
 
     static func parse(attributes: AttributeListSyntax, in context: some MacroExpansionContext) -> RegisterAttribute? {
-        let candidates = attributes.compactMap { element in
-            element.as(AttributeSyntax.self).flatMap(Candidate.init(node:))
-        }
-
-        guard let candidate = candidates.first else { return nil }
-
-        if candidates.count > 1 {
-            let message = MacroExpansionWarningMessage("We do not expect more than one attribute – the first one is taken")
-            let drop = Set(candidates.dropFirst().map { $0.node })
-            let new = attributes.filter { element in
-                if let attribute = element.as(AttributeSyntax.self) {
-                    return !drop.contains(attribute)
-                } else {
-                    return true
-                }
-            }
-
-            let diagnostic = Diagnostic(
-                node: candidate.node,
-                message: message,
-                highlights: drop.map { Syntax($0) },
-                fixIt: .init(
-                    message: MacroExpansionFixItMessage("Remove unused attributes"),
-                    changes: [
-                        .replace(
-                            oldNode: Syntax(attributes),
-                            newNode: Syntax(new)
-                        )
-                    ]
-                )
-            )
-
-            context.diagnose(diagnostic)
-        }
+        guard let candidate = Candidate.first(in: attributes, in: context) else { return nil }
 
         return parse(candidate: candidate, in: context)
     }
