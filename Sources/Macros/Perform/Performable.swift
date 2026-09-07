@@ -55,7 +55,7 @@ extension Performable.Function {
         let shapeOk = ValidationFunctionShape.validate(function, in: context)
         let returnOk: Bool
 
-        if let returnClause = function.signature.returnClause {
+        if let returnClause = function.signature.returnClause, !returnClause.type.isVoid {
             returnOk = false
 
             let message = MacroExpansionErrorMessage("There must be no return type – use `@Register` to expose the produced value")

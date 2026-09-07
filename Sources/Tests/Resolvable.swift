@@ -14,7 +14,8 @@ import Macros
 
 let macros: [String: any Macro.Type] = [
     "Resolvable": Resolvable.self,
-    "Register": Register.self
+    "Register": Register.self,
+    "Perform": Perform.self
 ]
 #endif
 
@@ -26,6 +27,16 @@ final class ResolvableTests: XCTestCase {
         throw XCTSkip("macros are only supported when running tests for the host platform")
         #endif
     }
+
+    func testPerformReturningVoid() throws {
+        #if canImport(Macros)
+        assertMacroExpansion(Self.voidSource, expandedSource: Self.voidExpanded, macros: macros)
+        #else
+        throw XCTSkip("macros are only supported when running tests for the host platform")
+        #endif
+    }
+
+
 }
 
 // MARK: - private
@@ -45,7 +56,7 @@ private extension ResolvableTests {
                 func database() async throws -> Database {
                     return Database()
                 }
-            
+
                 struct Resolved: Sendable {
                     let database: Database
                 }
@@ -77,3 +88,53 @@ private extension ResolvableTests {
             }
             """
 }
+
+// MARK: - private
+private extension ResolvableTests {
+    static let voidSource = """
+        @Resolvable
+        struct Container {
+            @Perform
+            func warmUp() async -> Void {
+            }
+        }
+        """
+
+    static let voidExpanded = """
+            struct Container {
+                func warmUp() async -> Void {
+                }
+
+                struct Resolved: Sendable {
+                }
+
+                struct Resolver: Sendable {
+                    private let _registrar = Resolve.Registrar(for: Container.self, minimumCapacity: 1)
+                    private let _resolvable: Container
+
+                    init(_ resolvable: Container) {
+                        self._resolvable = resolvable
+                    }
+
+                    func warmUp() async {
+                        await _registrar.register(for: "warmUp") {
+                            await _resolvable.warmUp()
+                        }
+                    }
+
+                    @discardableResult
+                    func resolve() async -> Resolved {
+                        await withDiscardingTaskGroup { group in
+                            group.addTask {
+                                await warmUp()
+                            }
+                        }
+
+                        return .init()
+                    }
+                }
+            }
+            """
+}
+
+

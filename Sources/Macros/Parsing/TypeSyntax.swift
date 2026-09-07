@@ -23,4 +23,11 @@ extension TypeSyntax {
     var opaque: Bool {
         tokens(viewMode: .sourceAccurate).contains { $0.tokenKind == .keyword(.some) }
     }
+
+    var isVoid: Bool {
+        switch trimmedDescription {
+        case "Void", "()", "Swift.Void": true
+        default: false
+        }
+    }
 }
