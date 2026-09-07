@@ -13,7 +13,7 @@ import SwiftSyntaxBuilder
 
 struct Performables {
     let all: [Performable]
-    
+
     init(all: [Performable], sort: Bool) {
         self.all = sort ? all.sorted(using: SortDescriptor(\.name.text)) : all
     }
@@ -21,20 +21,16 @@ struct Performables {
 
 struct Performable {
     struct Function {
-        struct Parameter {
-            let label: TokenSyntax?
-        }
-        
         let name: TokenSyntax
-        let parameter: Parameter?
+        let parameter: ResolverParameter?
         let concurrent: Bool
         let throwable: Bool
     }
-    
+
     let function: Function
     let attribute: PerformAttribute
     let node: FunctionDeclSyntax
-    
+
     var name: TokenSyntax {
         function.name
     }
@@ -44,7 +40,7 @@ extension Performable {
     static func parse(function declaration: FunctionDeclSyntax, in context: some MacroExpansionContext) -> Performable? {
         guard let attribute = PerformAttribute.parse(attributes: declaration.attributes, in: context) else { return nil }
         guard let function = Function.parse(function: declaration, in: context) else { return nil }
-        
+
         return .init(
             function: function,
             attribute: attribute,
@@ -73,63 +69,15 @@ extension Performable.Function {
             returnOk = true
         }
 
-        let parameter: Parameter?
+        let parameter = ResolverParameter.parse(parameters: function.signature.parameterClause.parameters, in: context)
 
-        do {
-            parameter = try .parse(parameters: function.signature.parameterClause.parameters, in: context)
-        } catch {
-            if let error = error as? Parameter.ParseError {
-                let message = MacroExpansionErrorMessage(error.kind.message)
-                let diagnostic = Diagnostic(
-                    node: error.node,
-                    message: message
-                )
-
-                context.diagnose(diagnostic)
-            }
-
-            return nil
-        }
-
-        guard shapeOk, returnOk else { return nil }
+        guard shapeOk, returnOk, parameter.valid else { return nil }
 
         return .init(
             name: function.name,
-            parameter: parameter,
+            parameter: parameter.parameter,
             concurrent: function.concurrent,
             throwable: function.throwable
         )
-    }
-}
-
-// MARK: - Performable.Function.Parameter
-extension Performable.Function.Parameter {
-    struct ParseError: @unchecked Sendable, Error {
-        typealias Kind = ValidationResolverParameter
-
-        let kind: Kind
-        let node: Syntax
-
-        init(kind: Kind, node: some SyntaxProtocol) {
-            self.kind = kind
-            self.node = Syntax(node)
-        }
-    }
-
-    static func parse(parameters: FunctionParameterListSyntax, in context: some MacroExpansionContext) throws -> Performable.Function.Parameter? {
-        guard !parameters.isEmpty else { return nil }
-        guard let first = parameters.first, parameters.count == 1 else { throw ParseError(kind: .count, node: parameters) }
-        guard first.type.identifier == "Resolver" else { throw ParseError(kind: .type, node: first) }
-        
-        switch first.firstName.tokenKind {
-        case .wildcard:
-            return .init(label: nil)
-            
-        case let .identifier(identifier):
-            return .init(label: .init(stringLiteral: identifier))
-            
-        default:
-            throw ParseError(kind: .syntax, node: first.firstName)
-        }
     }
 }
