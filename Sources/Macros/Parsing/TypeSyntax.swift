@@ -30,4 +30,20 @@ extension TypeSyntax {
         default: false
         }
     }
+
+    // `identifier` flattens a member type, which is right for an attribute name but not here – only
+    // the `Resolver` generated inside `enclosing` is accepted, spelled plainly or qualified by it.
+    func isResolver(of enclosing: TokenSyntax) -> Bool {
+        if let identifier = self.as(IdentifierTypeSyntax.self) {
+            return identifier.name.trimmedDescription == "Resolver" && identifier.genericArgumentClause == nil
+        }
+
+        if let member = self.as(MemberTypeSyntax.self) {
+            return member.name.trimmedDescription == "Resolver"
+                && member.genericArgumentClause == nil
+                && member.baseType.trimmedDescription == enclosing.text
+        }
+
+        return false
+    }
 }

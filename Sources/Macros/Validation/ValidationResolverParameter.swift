@@ -26,10 +26,10 @@ extension ResolverParameter {
         }
     }
 
-    static func parse(parameters: FunctionParameterListSyntax, in context: some MacroExpansionContext) -> Parsed {
+    static func parse(parameters: FunctionParameterListSyntax, of enclosing: TokenSyntax, in context: some MacroExpansionContext) -> Parsed {
         guard let first = parameters.first else { return .absent }
         guard parameters.count == 1 else { return .invalid(.count, node: parameters, in: context) }
-        guard first.type.identifier == "Resolver" else { return .invalid(.type, node: first, in: context) }
+        guard first.type.isResolver(of: enclosing) else { return .invalid(.type, node: first, in: context) }
 
         switch first.firstName.tokenKind {
         case .wildcard:

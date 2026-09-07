@@ -37,9 +37,9 @@ struct Performable {
 }
 
 extension Performable {
-    static func parse(function declaration: FunctionDeclSyntax, in context: some MacroExpansionContext) -> Performable? {
+    static func parse(function declaration: FunctionDeclSyntax, of enclosing: TokenSyntax, in context: some MacroExpansionContext) -> Performable? {
         guard let attribute = PerformAttribute.parse(attributes: declaration.attributes, in: context) else { return nil }
-        guard let function = Function.parse(function: declaration, in: context) else { return nil }
+        guard let function = Function.parse(function: declaration, of: enclosing, in: context) else { return nil }
 
         return .init(
             function: function,
@@ -51,7 +51,7 @@ extension Performable {
 
 // MARK: - Performable.Function
 extension Performable.Function {
-    static func parse(function: FunctionDeclSyntax, in context: some MacroExpansionContext) -> Performable.Function? {
+    static func parse(function: FunctionDeclSyntax, of enclosing: TokenSyntax, in context: some MacroExpansionContext) -> Performable.Function? {
         let shapeOk = ValidationFunctionShape.validate(function, in: context)
         let returnOk: Bool
 
@@ -69,7 +69,7 @@ extension Performable.Function {
             returnOk = true
         }
 
-        let parameter = ResolverParameter.parse(parameters: function.signature.parameterClause.parameters, in: context)
+        let parameter = ResolverParameter.parse(parameters: function.signature.parameterClause.parameters, of: enclosing, in: context)
 
         guard shapeOk, returnOk, parameter.valid else { return nil }
 

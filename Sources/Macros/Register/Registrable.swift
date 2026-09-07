@@ -46,9 +46,9 @@ struct Registrable {
 }
 
 extension Registrable {
-    static func parse(function declaration: FunctionDeclSyntax, in context: some MacroExpansionContext) -> Registrable? {
+    static func parse(function declaration: FunctionDeclSyntax, of enclosing: TokenSyntax, in context: some MacroExpansionContext) -> Registrable? {
         guard let attribute = RegisterAttribute.parse(attributes: declaration.attributes, in: context) else { return nil }
-        guard let function = Function.parse(function: declaration, in: context) else { return nil }
+        guard let function = Function.parse(function: declaration, of: enclosing, in: context) else { return nil }
 
         return .init(
             function: function,
@@ -60,7 +60,7 @@ extension Registrable {
 
 // MARK: - Registrable.Function
 extension Registrable.Function {
-    static func parse(function: FunctionDeclSyntax, in context: some MacroExpansionContext) -> Registrable.Function? {
+    static func parse(function: FunctionDeclSyntax, of enclosing: TokenSyntax, in context: some MacroExpansionContext) -> Registrable.Function? {
         let shapeOk = ValidationFunctionShape.validate(function, in: context)
         let type: TypeSyntax?
 
@@ -90,7 +90,7 @@ extension Registrable.Function {
             context.diagnose(diagnostic)
         }
 
-        let parameter = ResolverParameter.parse(parameters: function.signature.parameterClause.parameters, in: context)
+        let parameter = ResolverParameter.parse(parameters: function.signature.parameterClause.parameters, of: enclosing, in: context)
 
         guard let type, parameter.valid, shapeOk else { return nil }
 

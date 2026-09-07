@@ -26,10 +26,10 @@ public enum Resolvable: MemberMacro {
         )
         let validation = ResolvableValidation(
             registrables: functions.compactMap { function in
-                Registrable.parse(function: function, in: context)
+                Registrable.parse(function: function, of: declaration.type, in: context)
             },
             performables: functions.compactMap { function in
-                Performable.parse(function: function, in: context)
+                Performable.parse(function: function, of: declaration.type, in: context)
             }
         )
         let resolvables = validation.validate(in: context)

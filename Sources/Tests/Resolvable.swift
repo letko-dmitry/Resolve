@@ -6,6 +6,7 @@
 //
 
 import SwiftSyntaxMacros
+import SwiftSyntaxMacrosGenericTestSupport
 import SwiftSyntaxMacrosTestSupport
 import XCTest
 
@@ -36,7 +37,28 @@ final class ResolvableTests: XCTestCase {
         #endif
     }
 
+    func testQualifiedResolverParameter() throws {
+        #if canImport(Macros)
+        assertMacroExpansion(Self.qualifiedSource, expandedSource: Self.qualifiedExpanded, macros: macros)
+        #else
+        throw XCTSkip("macros are only supported when running tests for the host platform")
+        #endif
+    }
 
+    func testForeignResolverParameter() throws {
+        #if canImport(Macros)
+        assertMacroExpansion(
+            Self.foreignSource,
+            expandedSource: Self.foreignExpanded,
+            diagnostics: [
+                DiagnosticSpec(message: "The only parameter allowed here is of type `Resolver`", line: 4, column: 19)
+            ],
+            macros: macros
+        )
+        #else
+        throw XCTSkip("macros are only supported when running tests for the host platform")
+        #endif
+    }
 }
 
 // MARK: - private
@@ -137,4 +159,89 @@ private extension ResolvableTests {
             """
 }
 
+// MARK: - private
+private extension ResolvableTests {
+    static let qualifiedSource = """
+        @Resolvable
+        struct Container {
+            @Register()
+            func database(_ resolver: Container.Resolver) -> Database {
+                return Database()
+            }
+        }
+        """
 
+    static let qualifiedExpanded = """
+            struct Container {
+                func database(_ resolver: Container.Resolver) -> Database {
+                    return Database()
+                }
+
+                struct Resolved: Sendable {
+                    let database: Database
+                }
+
+                struct Resolver: Sendable {
+                    private let _registrar = Resolve.Registrar(for: Container.self, minimumCapacity: 1)
+                    private let _resolvable: Container
+
+                    var database: Database {
+                        get async {
+                            await _registrar.register(for: "database") {
+                                _resolvable.database(self)
+                            }
+                        }
+                    }
+
+                    init(_ resolvable: Container) {
+                        self._resolvable = resolvable
+                    }
+
+                    func resolve() async -> Resolved {
+                        async let database = database
+
+                        return await .init(
+                            database: database
+                        )
+                    }
+                }
+            }
+            """
+}
+
+// MARK: - private
+private extension ResolvableTests {
+    static let foreignSource = """
+        @Resolvable
+        struct Container {
+            @Register()
+            func database(_ resolver: Foo.Resolver) -> Database {
+                return Database()
+            }
+        }
+        """
+
+    static let foreignExpanded = """
+            struct Container {
+                func database(_ resolver: Foo.Resolver) -> Database {
+                    return Database()
+                }
+
+                struct Resolved: Sendable {
+                }
+
+                struct Resolver: Sendable {
+                    private let _resolvable: Container
+
+                    init(_ resolvable: Container) {
+                        self._resolvable = resolvable
+                    }
+
+                    @discardableResult
+                    func resolve() -> Resolved {
+                        return .init()
+                    }
+                }
+            }
+            """
+}
