@@ -22,7 +22,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-algorithms.git", from: "1.2.1"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.6.0"),
-        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.0")
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", "600.0.0"..<"700.0.0")
     ],
     targets: [
         .macro(
