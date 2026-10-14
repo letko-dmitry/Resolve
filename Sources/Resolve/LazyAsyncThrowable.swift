@@ -140,8 +140,8 @@ public final class LazyAsyncThrowable<Value: Sendable>: Sendable {
        bootstrap, or after a deliberate prior `try await` on the same
        instance. Reach for `valueIfResolved` whenever you are not certain.
      */
-    @inlinable
-    @inline(__always)
+    @inline(always)
+    @export(implementation)
     public var valueUnwrapped: Value {
         // swiftlint:disable:next force_unwrapping - unwrapping is the documented contract of this property
         valueIfResolved!
@@ -191,8 +191,8 @@ public final class LazyAsyncThrowable<Value: Sendable>: Sendable {
        same error is re-thrown on every subsequent invocation; the factory
        is *not* retried.
      */
-    @inlinable
-    @inline(__always)
+    @inline(always)
+    @export(implementation)
     @discardableResult
     public func resolve() async throws -> Value {
         try await value
@@ -213,8 +213,8 @@ public final class LazyAsyncThrowable<Value: Sendable>: Sendable {
        error is re-thrown on every subsequent invocation; the factory is
        *not* retried.
      */
-    @inlinable
-    @inline(__always)
+    @inline(always)
+    @export(implementation)
     public func callAsFunction() async throws -> Value {
         try await value
     }

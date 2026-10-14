@@ -111,8 +111,8 @@ public final class LazyAsync<Value: Sendable>: Sendable {
        successful application bootstrap. Reach for `valueIfResolved` whenever
        you are not certain.
      */
-    @inlinable
-    @inline(__always)
+    @inline(always)
+    @export(implementation)
     public var valueUnwrapped: Value {
         // swiftlint:disable:next force_unwrapping - unwrapping is the documented contract of this property
         valueIfResolved!
@@ -155,8 +155,8 @@ public final class LazyAsync<Value: Sendable>: Sendable {
      
      - Returns: The resolved value.
      */
-    @inlinable
-    @inline(__always)
+    @inline(always)
+    @export(implementation)
     @discardableResult
     public func resolve() async -> Value {
         await value
@@ -173,8 +173,8 @@ public final class LazyAsync<Value: Sendable>: Sendable {
 
      - Returns: The resolved value.
      */
-    @inlinable
-    @inline(__always)
+    @inline(always)
+    @export(implementation)
     public func callAsFunction() async -> Value {
         await value
     }

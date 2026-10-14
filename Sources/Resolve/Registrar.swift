@@ -64,8 +64,8 @@ public struct Registrar: Sendable {
          - Parameter once: Cache scope. See the `once` stored property for
            the meaning.
          */
-        @inlinable
-        @inline(__always)
+        @inline(always)
+        @export(implementation)
         public init(once: Bool = false) {
             self.once = once
         }
@@ -77,7 +77,9 @@ public struct Registrar: Sendable {
          that hold references back into the resolver graph (databases, use
          cases, controllers).
          */
-        public static let `default` = Options()
+        @inline(always)
+        @export(implementation)
+        public static var `default`: Options { Options() }
 
         /**
          Cache the registration for the entire process lifetime, keyed by the
@@ -91,7 +93,9 @@ public struct Registrar: Sendable {
          Even if a fresh `Resolver` is constructed later, the cached value
          from the very first call is reused.
          */
-        public static let once = Options(once: true)
+        @inline(always)
+        @export(implementation)
+        public static var once: Options { Options(once: true) }
 
         /**
          Deprecated alias for `once`.
