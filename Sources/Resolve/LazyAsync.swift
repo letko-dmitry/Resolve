@@ -58,36 +58,34 @@ import os.lock
 public final class LazyAsync<Value: Sendable>: Sendable {
     private let state: OSAllocatedUnfairLock<State>
     private var resolution: Resolution<Value, Never> {
-        get async {
-            state.withLock { current in
-                switch current {
-                case .resolvable(let resolvable):
-                    let task = Lazy { [state] in
-                        Task {
-                            let value = await resolvable()
-                            
-                            state.withLock { state in
-                                state = .resolved(value)
-                            }
-                            
-                            return value
+        state.withLock { current in
+            switch current {
+            case .resolvable(let resolvable):
+                let task = Lazy { [state] in
+                    Task {
+                        let value = await resolvable()
+                        
+                        state.withLock { state in
+                            state = .resolved(value)
                         }
+                        
+                        return value
                     }
-                    
-                    current = .resolving(task)
-                    
-                    return .task(task)
-                
-                case .resolving(let task):
-                    return .task(task)
-                
-                case .resolved(let value):
-                    return .value(value)
                 }
+                
+                current = .resolving(task)
+                
+                return .task(task)
+            
+            case .resolving(let task):
+                return .task(task)
+            
+            case .resolved(let value):
+                return .value(value)
             }
         }
     }
-    
+
     /**
      The resolved value, computing it on the first access.
      
@@ -97,7 +95,7 @@ public final class LazyAsync<Value: Sendable>: Sendable {
      */
     public var value: Value {
         get async {
-            await resolution.value
+            await resolution.value()
         }
     }
     
