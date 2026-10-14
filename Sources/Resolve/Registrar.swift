@@ -18,9 +18,9 @@
  - a *local* `Container<String>` keyed by registration name, used for
    `Options.default` registrations and tied to the lifetime of the parent
    `Resolver`;
- - an `ObjectIdentifier` of the container type, used to look up a *global*
-   `Container<String>` shared across every `Resolver` of that type when a
-   registration opts into `Options.once`.
+ - a *global* `Container<String>` shared across every `Resolver` of the same
+   container type, looked up once when the `Registrar` is created and used by
+   registrations that opt into `Options.once`.
 
  The combination guarantees that:
 
@@ -109,7 +109,7 @@ public struct Registrar: Sendable {
     }
 
     @usableFromInline let local: Container<String>
-    @usableFromInline let typeIdentifier: ObjectIdentifier
+    @usableFromInline let global: Container<String>
 
     /**
      Creates a `Registrar` for the given container type.
@@ -129,7 +129,7 @@ public struct Registrar: Sendable {
     @inlinable
     public init<T>(for type: T.Type, minimumCapacity: Int = 0) {
         self.local = Container(minimumCapacity: minimumCapacity)
-        self.typeIdentifier = ObjectIdentifier(type)
+        self.global = .global(for: ObjectIdentifier(type))
     }
 
     /**
@@ -188,14 +188,15 @@ extension Registrar {
     }
 }
 
-// MARK: - Registrar
-private extension Registrar {
-    var global: Container<String> {
-        Container.global.findOrCreate(key: typeIdentifier) { Container() }
+// MARK: - Container<String>
+extension Container<String> {
+    @usableFromInline
+    static func global(for type: ObjectIdentifier) -> Self {
+        Container<ObjectIdentifier>.globals.findOrCreate(key: type) { Self() }
     }
 }
 
 // MARK: - Container<ObjectIdentifier>
 private extension Container<ObjectIdentifier> {
-    static let global = Self()
+    static let globals = Self()
 }
