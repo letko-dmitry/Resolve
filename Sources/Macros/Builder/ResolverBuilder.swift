@@ -77,9 +77,9 @@ private extension ResolverBuilder {
                 var functionParameters: String {
                     if let parameter = function.parameter {
                         if let label = parameter.label {
-                            "\(label): self"
+                            "\(label): resolver"
                         } else {
-                            "self"
+                            "resolver"
                         }
                     } else {
                         ""
@@ -87,13 +87,13 @@ private extension ResolverBuilder {
                 }
                 
                 let functionEffect = "\(registrable.function.throwable ? "try " : "")\(registrable.function.concurrent ? "await " : "")"
-                let functionCall: ExprSyntax = "\(raw: functionEffect)_\(declaration.name).\(function.name)(\(raw: functionParameters))"
+                let functionCall: ExprSyntax = "\(raw: functionEffect)resolver._\(declaration.name).\(function.name)(\(raw: functionParameters))"
                 
                 var register: ExprSyntax {
                     if let options = registrable.attribute.options {
-                        "register(for: \"\(raw: registrable.name.unescaped)\", options: \(options))"
+                        "register(for: \"\(raw: registrable.name.unescaped)\", options: \(options), self)"
                     } else {
-                        "register(for: \"\(raw: registrable.name.unescaped)\")"
+                        "register(for: \"\(raw: registrable.name.unescaped)\", self)"
                     }
                 }
                 
@@ -101,7 +101,7 @@ private extension ResolverBuilder {
                     """
                     \(declaration.access)var \(registrable.name): \(registrable.function.type) {
                         get async throws {
-                            try await _\(registrar.name).\(register) {
+                            try await _\(registrar.name).\(register) { resolver in
                                 \(functionCall)
                             }
                         }
@@ -111,7 +111,7 @@ private extension ResolverBuilder {
                     """
                     \(declaration.access)var \(registrable.name): \(registrable.function.type) {
                         get async {
-                            await _\(registrar.name).\(register) {
+                            await _\(registrar.name).\(register) { resolver in
                                 \(functionCall)
                             }
                         }
@@ -137,9 +137,9 @@ private extension ResolverBuilder {
                 var functionParameters: String {
                     if let parameter = function.parameter {
                         if let label = parameter.label {
-                            return "\(label): self"
+                            return "\(label): resolver"
                         } else {
-                            return "self"
+                            return "resolver"
                         }
                     } else {
                         return ""
@@ -147,20 +147,20 @@ private extension ResolverBuilder {
                 }
                 
                 let functionEffect = "\(performable.function.throwable ? "try " : "")\(performable.function.concurrent ? "await " : "")"
-                let functionCall: ExprSyntax = "\(raw: functionEffect)_\(declaration.name).\(function.name)(\(raw: functionParameters))"
+                let functionCall: ExprSyntax = "\(raw: functionEffect)resolver._\(declaration.name).\(function.name)(\(raw: functionParameters))"
                 
                 var register: ExprSyntax {
                     if let options = performable.attribute.options {
-                        "register(for: \"\(raw: performable.name.unescaped)\", options: \(options))"
+                        "register(for: \"\(raw: performable.name.unescaped)\", options: \(options), self)"
                     } else {
-                        "register(for: \"\(raw: performable.name.unescaped)\")"
+                        "register(for: \"\(raw: performable.name.unescaped)\", self)"
                     }
                 }
                 
                 if performable.function.throwable {
                     """
                     \(declaration.access)func \(performable.name)() async throws {
-                        try await _\(registrar.name).\(register) {
+                        try await _\(registrar.name).\(register) { resolver in
                             \(functionCall)
                         }
                     }
@@ -168,7 +168,7 @@ private extension ResolverBuilder {
                 } else {
                     """
                     \(declaration.access)func \(performable.name)() async {
-                        await _\(registrar.name).\(register) {
+                        await _\(registrar.name).\(register) { resolver in
                             \(functionCall)
                         }
                     }

@@ -16,7 +16,6 @@ struct Container<Key: Sendable & Hashable>: Sendable {
         values = OSAllocatedUnfairLock(initialState: .init(minimumCapacity: minimumCapacity))
     }
     
-    @usableFromInline
     func findOrCreate<V: Sendable>(key: Key, value: @Sendable () -> V) -> V {
         values.withLock { values in
             if let value = values[key] as? V {

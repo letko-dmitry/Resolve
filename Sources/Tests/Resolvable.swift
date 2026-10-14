@@ -89,8 +89,8 @@ private extension ResolvableTests {
 
                     var database: Database {
                         get async throws {
-                            try await _registrar.register(for: "database") {
-                                try await _resolvable.database()
+                            try await _registrar.register(for: "database", self) { resolver in
+                                try await resolver._resolvable.database()
                             }
                         }
                     }
@@ -139,8 +139,8 @@ private extension ResolvableTests {
                     }
 
                     func warmUp() async {
-                        await _registrar.register(for: "warmUp") {
-                            await _resolvable.warmUp()
+                        await _registrar.register(for: "warmUp", self) { resolver in
+                            await resolver._resolvable.warmUp()
                         }
                     }
 
@@ -187,8 +187,8 @@ private extension ResolvableTests {
 
                     var database: Database {
                         get async {
-                            await _registrar.register(for: "database") {
-                                _resolvable.database(self)
+                            await _registrar.register(for: "database", self) { resolver in
+                                resolver._resolvable.database(resolver)
                             }
                         }
                     }

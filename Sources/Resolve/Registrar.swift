@@ -146,15 +146,18 @@ public struct Registrar: Sendable {
         - options: Whether the value should live for the lifetime of this
           `Resolver` (`Options.default`) or the entire process
           (`Options.once`).
+        - resolver: The generated `Resolver`, handed back to `dependency`.
+          Passing it instead of capturing it keeps the macro's closure free of
+          captures, so an access that hits the cache allocates nothing.
         - dependency: The factory closure produced by the macro.
      - Returns: The cached value (or the value produced by the first call).
      - Throws: Any error thrown by the underlying factory.
      */
     @discardableResult
-    @inlinable
-    public func register<V: Sendable>(for name: String, options: Options = .default, @_implicitSelfCapture _ dependency: @isolated(any) @escaping @Sendable () async throws -> V) async throws -> V {
-        try await container(options: options).findOrCreate(key: name) {
-            Task(operation: dependency)
+    @export(implementation)
+    public func register<R: Sendable, V: Sendable>(for name: String, options: Options = .default, _ resolver: R, _ dependency: @escaping @Sendable (R) async throws -> V) async throws -> V {
+        try await findOrCreate(for: name, options: options) {
+            Self.task(resolver, dependency)
         }.value
     }
 
@@ -169,22 +172,35 @@ public struct Registrar: Sendable {
      - Parameters:
         - name: The registration key.
         - options: Cache scope.
+        - resolver: The generated `Resolver`, handed back to `dependency`.
         - dependency: The factory closure produced by the macro.
      - Returns: The cached value (or the value produced by the first call).
      */
     @discardableResult
-    @inlinable
-    public func register<V: Sendable>(for name: String, options: Options = .default, @_implicitSelfCapture _ dependency: @isolated(any) @escaping @Sendable () async -> V) async -> V {
-        await container(options: options).findOrCreate(key: name) {
-            Task(operation: dependency)
+    @export(implementation)
+    public func register<R: Sendable, V: Sendable>(for name: String, options: Options = .default, _ resolver: R, _ dependency: @escaping @Sendable (R) async -> V) async -> V {
+        await findOrCreate(for: name, options: options) {
+            Self.task(resolver, dependency)
         }.value
     }
 }
 
+// Deliberately not inlinable: the inlined `register` shell only calls in here, so the lookup and the generic
+// `Task` creation – with its reabstraction thunks – are emitted once in this module instead of in every getter.
 extension Registrar {
     @usableFromInline
-    func container(options: Options) -> Container<String> {
-        options.once ? global : local
+    func findOrCreate<V: Sendable>(for name: String, options: Options, _ value: @Sendable () -> V) -> V {
+        (options.once ? global : local).findOrCreate(key: name, value: value)
+    }
+
+    @usableFromInline
+    static func task<R: Sendable, V: Sendable>(_ resolver: R, _ dependency: @escaping @Sendable (R) async throws -> V) -> Task<V, any Error> {
+        Task { try await dependency(resolver) }
+    }
+
+    @usableFromInline
+    static func task<R: Sendable, V: Sendable>(_ resolver: R, _ dependency: @escaping @Sendable (R) async -> V) -> Task<V, Never> {
+        Task { await dependency(resolver) }
     }
 }
 
