@@ -25,7 +25,8 @@ struct Container<Key: Sendable & Hashable>: Sendable {
             
             let value = value()
 
-            values[key] = value
+            // Not `values[key] = value`: the optional subscript setter also pulls the removal path into the binary.
+            values.updateValue(value, forKey: key)
             
             return value
         }
