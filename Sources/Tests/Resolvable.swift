@@ -37,6 +37,14 @@ final class ResolvableTests: XCTestCase {
         #endif
     }
 
+    func testThrowingPerformAndOptions() throws {
+        #if canImport(Macros)
+        assertMacroExpansion(Self.optionsSource, expandedSource: Self.optionsExpanded, macros: macros)
+        #else
+        throw XCTSkip("macros are only supported when running tests for the host platform")
+        #endif
+    }
+
     func testQualifiedResolverParameter() throws {
         #if canImport(Macros)
         assertMacroExpansion(Self.qualifiedSource, expandedSource: Self.qualifiedExpanded, macros: macros)
@@ -84,14 +92,12 @@ private extension ResolvableTests {
                 }
 
                 struct Resolver: Sendable {
-                    private let _registrar = Resolve.Registrar(for: Container.self, minimumCapacity: 1)
+                    private let _registrar = Resolve.Registrar.Storage(Registrations())
                     private let _resolvable: Container
 
                     var database: Database {
                         get async throws {
-                            try await _registrar.register(for: "database", self) { resolver in
-                                try await resolver._resolvable.database()
-                            }
+                            try await _registrar.database.value(self)
                         }
                     }
 
@@ -100,11 +106,17 @@ private extension ResolvableTests {
                     }
 
                     func resolve() async throws -> Resolved {
-                        async let database = database
+                        _registrar.database.start(self)
 
                         return try await .init(
-                            database: database
+                            database: _registrar.database.value(self)
                         )
+                    }
+
+                    private struct Registrations: Sendable {
+                        let database = Resolve.RegistrationThrowable { (resolver: Resolver) in
+                            try await resolver._resolvable.database()
+                        }
                     }
                 }
             }
@@ -131,7 +143,7 @@ private extension ResolvableTests {
                 }
 
                 struct Resolver: Sendable {
-                    private let _registrar = Resolve.Registrar(for: Container.self, minimumCapacity: 1)
+                    private let _registrar = Resolve.Registrar.Storage(Registrations())
                     private let _resolvable: Container
 
                     init(_ resolvable: Container) {
@@ -139,20 +151,93 @@ private extension ResolvableTests {
                     }
 
                     func warmUp() async {
-                        await _registrar.register(for: "warmUp", self) { resolver in
-                            await resolver._resolvable.warmUp()
-                        }
+                        await _registrar.warmUp.value(self)
                     }
 
                     @discardableResult
                     func resolve() async -> Resolved {
-                        await withDiscardingTaskGroup { group in
-                            group.addTask {
-                                await warmUp()
-                            }
-                        }
+                        _registrar.warmUp.start(self)
+
+                        await _registrar.warmUp.value(self)
 
                         return .init()
+                    }
+
+                    private struct Registrations: Sendable {
+                        let warmUp = Resolve.Registration { (resolver: Resolver) in
+                            await resolver._resolvable.warmUp()
+                        }
+                    }
+                }
+            }
+            """
+}
+
+// MARK: - private
+private extension ResolvableTests {
+    static let optionsSource = """
+        @Resolvable
+        struct Container {
+            @Register(options: .once)
+            func reporter() -> Reporter {
+                Reporter()
+            }
+
+            @Perform
+            func warmUp(_ resolver: Resolver) async throws {
+            }
+        }
+        """
+
+    static let optionsExpanded = """
+            struct Container {
+                func reporter() -> Reporter {
+                    Reporter()
+                }
+                func warmUp(_ resolver: Resolver) async throws {
+                }
+
+                struct Resolved: Sendable {
+                    let reporter: Reporter
+                }
+
+                struct Resolver: Sendable {
+                    private let _registrar = Resolve.Registrar.Storage(Registrations())
+                    private let _resolvable: Container
+
+                    var reporter: Reporter {
+                        get async {
+                            await _registrar.reporter.value(self)
+                        }
+                    }
+
+                    init(_ resolvable: Container) {
+                        self._resolvable = resolvable
+                    }
+
+                    func warmUp() async throws {
+                        try await _registrar.warmUp.value(self)
+                    }
+
+                    func resolve() async throws -> Resolved {
+                        _registrar.reporter.start(self)
+                        _registrar.warmUp.start(self)
+
+                        try await _registrar.warmUp.value(self)
+
+                        return await .init(
+                            reporter: _registrar.reporter.value(self)
+                        )
+                    }
+
+                    private struct Registrations: Sendable {
+                        let reporter = Resolve.Registration(options: .once) { (resolver: Resolver) in
+                            resolver._resolvable.reporter()
+                        }
+
+                        let warmUp = Resolve.RegistrationThrowable { (resolver: Resolver) in
+                            try await resolver._resolvable.warmUp(resolver)
+                        }
                     }
                 }
             }
@@ -182,14 +267,12 @@ private extension ResolvableTests {
                 }
 
                 struct Resolver: Sendable {
-                    private let _registrar = Resolve.Registrar(for: Container.self, minimumCapacity: 1)
+                    private let _registrar = Resolve.Registrar.Storage(Registrations())
                     private let _resolvable: Container
 
                     var database: Database {
                         get async {
-                            await _registrar.register(for: "database", self) { resolver in
-                                resolver._resolvable.database(resolver)
-                            }
+                            await _registrar.database.value(self)
                         }
                     }
 
@@ -198,11 +281,17 @@ private extension ResolvableTests {
                     }
 
                     func resolve() async -> Resolved {
-                        async let database = database
+                        _registrar.database.start(self)
 
                         return await .init(
-                            database: database
+                            database: _registrar.database.value(self)
                         )
+                    }
+
+                    private struct Registrations: Sendable {
+                        let database = Resolve.Registration { (resolver: Resolver) in
+                            resolver._resolvable.database(resolver)
+                        }
                     }
                 }
             }

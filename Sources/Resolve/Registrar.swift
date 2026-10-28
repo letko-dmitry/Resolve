@@ -5,22 +5,24 @@
 //  Created by Dzmitry Letko on 01/10/2023.
 //
 
+import os.lock
+
 /**
- Thread-safe per-type cache used by code generated from `Resolvable`.
+ The runtime half of `Resolvable`: what a generated `Resolver` calls into.
 
- You usually do not interact with `Registrar` directly. The macros emit a
- private `_registrar` property on each generated `Resolver`, and that property
- holds the only `Registrar` you need. The type is public because the generated
- code lives in the consumer's module and must be able to refer to it.
+ You usually do not interact with `Registrar` directly. Its types are public
+ because the generated code lives in the consumer's module and must be able to
+ refer to them.
 
- Internally, every `Registrar` owns:
+ Every generated `Resolver` declares a private `Registrations` struct with one
+ `Registration` or `RegistrationThrowable` per `Register`, `RegisterTransient`,
+ `Keep` and `Perform`, and keeps two copies of it in a `Registrar.Storage`:
 
- - a *local* `Container<String>` keyed by registration name, used for
-   `Options.default` registrations and tied to the lifetime of the parent
-   `Resolver`;
- - a *global* `Container<String>` shared across every `Resolver` of the same
-   container type, looked up once when the `Registrar` is created and used by
-   registrations that opt into `Options.once`.
+ - a *local* one, used by `Options.default` registrations and tied to the
+   lifetime of the `Resolver`;
+ - a *global* one shared by every `Resolver` of the same container type,
+   created by the first of them and used by registrations that opt into
+   `Options.once`.
 
  The combination guarantees that:
 
@@ -53,13 +55,13 @@ public struct Registrar: Sendable {
 
          Prefer the static presets `Options.default` and `Options.once`.
 
-         - Warning: The generated getter re-evaluates the `options:` expression
-           on every access, and the value decides *which* container answers.
-           Deriving it from something that can change — a runtime flag, a
-           configuration lookup — sends the same registration to the local
-           container on one access and to the process-wide one on the next,
+         - Warning: The `options:` expression is evaluated each time a `Resolver`
+           is created, and the value decides *which* copy of the registrations
+           answers. Deriving it from something that can change — a runtime flag,
+           a configuration lookup — sends the same registration to the local
+           copy for one `Resolver` and to the process-wide one for the next,
            producing two live values under one name. Whatever you pass must be
-           constant for the lifetime of the registration.
+           constant for the lifetime of the process.
 
          - Parameter once: Cache scope. See the `once` stored property for
            the meaning.
@@ -108,111 +110,94 @@ public struct Registrar: Sendable {
         public static var singleton: Options { .once }
     }
 
-    @usableFromInline let local: Container<String>
-    @usableFromInline let global: Container<String>
-
     /**
-     Creates a `Registrar` for the given container type.
+     The registrations of one generated `Resolver`: its own copy and the
+     process-wide copy shared by every `Resolver` of the container type.
 
-     Generated code calls this initialiser exactly once per `Resolver`
-     instance. You should not call it from hand-written code.
+     A registration is reached as a dynamic member, `_registrar.database`, which
+     is a key path to the stored property inlined at the call site: it compiles
+     to a plain field load, with no key to hash and nothing to cast. The
+     registrations themselves never change; each one guards its own state.
 
-     - Parameters:
-        - type: The container type the registrar belongs to. Used as the key
-          for `Options.once` lookups, so two different containers do not
-          share global state even if their registration names collide.
-        - minimumCapacity: A hint that pre-sizes the underlying dictionary to
-          avoid rehashing during the first burst of registrations. The
-          generated code passes the total number of registration and
-          `@Perform` declarations on the container.
+     Generated code creates one per `Resolver`. You should not create one from
+     hand-written code.
      */
-    @inlinable
-    public init<T>(for type: T.Type, minimumCapacity: Int = 0) {
-        self.local = Container(minimumCapacity: minimumCapacity)
-        self.global = .global(for: ObjectIdentifier(type))
-    }
+    @dynamicMemberLookup
+    public struct Storage<Registrations: Sendable>: Sendable {
+        @usableFromInline let local: Box
+        @usableFromInline let global: Box
 
-    /**
-     Resolves a throwing async dependency, caching the resulting `Task` so
-     concurrent callers share a single in-flight resolution.
+        /**
+         Creates the storage of a `Resolver`.
 
-     This is the throwing entry point used by code generated from `@Register`,
-     `@RegisterTransient`, `@Keep`, and `@Perform` declarations on functions
-     that are `async throws`.
+         - Parameter registrations: Every registration of the container, none of
+           them started. The first `Resolver` of a container type also keeps a
+           copy of them as the process-wide registrations.
+         */
+        @export(implementation)
+        public init(_ registrations: Registrations) {
+            self.local = Box(registrations)
+            self.global = .global(registrations)
+        }
 
-     - Parameters:
-        - name: The registration key. The generated code uses the function
-          name (or the explicit `name:` passed to the macro).
-        - options: Whether the value should live for the lifetime of this
-          `Resolver` (`Options.default`) or the entire process
-          (`Options.once`).
-        - resolver: The generated `Resolver`, handed back to `dependency`.
-          Passing it instead of capturing it keeps the macro's closure free of
-          captures, so an access that hits the cache allocates nothing.
-        - dependency: The factory closure produced by the macro.
-     - Returns: The cached value (or the value produced by the first call).
-     - Throws: Any error thrown by the underlying factory.
-     */
-    @discardableResult
-    @export(implementation)
-    public func register<R: Sendable, V: Sendable>(for name: String, options: Options = .default, _ resolver: R, _ dependency: @escaping @Sendable (R) async throws -> V) async throws -> V {
-        try await findOrCreate(for: name, options: options) {
-            Self.task(resolver, dependency)
-        }.value
-    }
+        /**
+         The non-throwing registration behind a stored property: the
+         process-wide copy for `Options.once`, the resolver's own otherwise.
+         */
+        @export(implementation)
+        public subscript<R, V>(dynamicMember registration: KeyPath<Registrations, Registration<R, V>>) -> Registration<R, V> {
+            let local = local.registrations[keyPath: registration]
 
-    /**
-     Resolves a non-throwing async dependency, caching the resulting `Task` so
-     concurrent callers share a single in-flight resolution.
+            return local.once ? global.registrations[keyPath: registration] : local
+        }
 
-     Same semantics as the throwing overload, but used by code generated for
-     `@Register`, `@RegisterTransient`, `@Keep`, and `@Perform` declarations on
-     functions that are `async` only.
+        /**
+         The throwing registration behind a stored property: the process-wide
+         copy for `Options.once`, the resolver's own otherwise.
+         */
+        @export(implementation)
+        public subscript<R, V>(dynamicMember registration: KeyPath<Registrations, RegistrationThrowable<R, V>>) -> RegistrationThrowable<R, V> {
+            let local = local.registrations[keyPath: registration]
 
-     - Parameters:
-        - name: The registration key.
-        - options: Cache scope.
-        - resolver: The generated `Resolver`, handed back to `dependency`.
-        - dependency: The factory closure produced by the macro.
-     - Returns: The cached value (or the value produced by the first call).
-     */
-    @discardableResult
-    @export(implementation)
-    public func register<R: Sendable, V: Sendable>(for name: String, options: Options = .default, _ resolver: R, _ dependency: @escaping @Sendable (R) async -> V) async -> V {
-        await findOrCreate(for: name, options: options) {
-            Self.task(resolver, dependency)
-        }.value
+            return local.once ? global.registrations[keyPath: registration] : local
+        }
     }
 }
 
-// Deliberately not inlinable: the inlined `register` shell only calls in here, so the lookup and the generic
-// `Task` creation – with its reabstraction thunks – are emitted once in this module instead of in every getter.
-extension Registrar {
+// MARK: - Registrar.Storage
+extension Registrar.Storage {
+    // A class, so that the copies of a `Resolver` – one in every task it starts – share one set of registrations.
     @usableFromInline
-    func findOrCreate<V: Sendable>(for name: String, options: Options, _ value: @Sendable () -> V) -> V {
-        (options.once ? global : local).findOrCreate(key: name, value: value)
-    }
+    final class Box: Sendable {
+        @usableFromInline let registrations: Registrations
 
-    @usableFromInline
-    static func task<R: Sendable, V: Sendable>(_ resolver: R, _ dependency: @escaping @Sendable (R) async throws -> V) -> Task<V, any Error> {
-        Task { try await dependency(resolver) }
-    }
+        @usableFromInline
+        init(_ registrations: Registrations) {
+            self.registrations = registrations
+        }
 
-    @usableFromInline
-    static func task<R: Sendable, V: Sendable>(_ resolver: R, _ dependency: @escaping @Sendable (R) async -> V) -> Task<V, Never> {
-        Task { await dependency(resolver) }
+        // The process-wide registrations of a container type, copied from those of the first `Resolver` that asks.
+        @usableFromInline
+        static func global(_ registrations: Registrations) -> Box {
+            Registrar.globals.withLock { globals in
+                let type = ObjectIdentifier(Registrations.self)
+
+                if let global = globals[type] as? Box {
+                    return global
+                }
+
+                let global = Box(registrations)
+
+                // Not `globals[type] = global`: the optional subscript setter also pulls the removal path into the binary.
+                globals.updateValue(global, forKey: type)
+
+                return global
+            }
+        }
     }
 }
 
-// MARK: - Container<String>
-extension Container<String> {
-    @usableFromInline
-    static func global(for type: ObjectIdentifier) -> Self {
-        Container<ObjectIdentifier>.globals.findOrCreate(key: type) { Self() }
-    }
-}
-
-// MARK: - Container<ObjectIdentifier>
-private extension Container<ObjectIdentifier> {
-    static let globals = Self()
+// MARK: - Registrar
+private extension Registrar {
+    static let globals = OSAllocatedUnfairLock(initialState: [ObjectIdentifier: any Sendable]())
 }

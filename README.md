@@ -67,7 +67,7 @@ The `@Resolvable` macro generates two nested types from your container:
 - **`Resolver`** -- a facade that exposes each `@Register` as an async property and each `@Perform` as an async method. Calling `resolve()` builds the entire dependency graph.
 - **`Resolved`** -- an immutable, `Sendable` aggregate holding all resolved dependencies. This is what you pass around your app. A `@Keep` registration is in there too, as a `private` property: held for as long as you hold `Resolved`, readable by nobody.
 
-All non-transient registrations start concurrently via `async let`. All `@Perform` steps run in parallel inside a task group. Dependencies that reference siblings through `Resolver` naturally await each other, forming an implicit DAG -- and a cycle among them is rejected at compile time rather than deadlocking at runtime.
+`resolve()` starts every non-transient registration and every `@Perform` step, each in its own task, before it awaits any of them. Dependencies that reference siblings through `Resolver` naturally await each other, forming an implicit DAG -- and a cycle among them is rejected at compile time rather than deadlocking at runtime. If something throws, `resolve()` rethrows the first failure; whatever it started keeps running and stays cached in the `Resolver`.
 
 Every dependency is built **at most once per `Resolver`**. Concurrent callers share a single in-flight `Task`, so a value referenced by five siblings is still constructed once.
 
@@ -335,7 +335,7 @@ Mistakes are reported on your declaration, not inside generated code. In short, 
 - a factory is `static`, `class`, `mutating`, or generic
 - a factory takes more than one parameter, or one that is not a `Resolver`
 - two registrations end up exposing the same name
-- a registration is called `resolve`, `Resolved`, `Resolver`, `_registrar` or `_resolvable`
+- a registration is called `resolve`, `Resolved`, `Resolver`, `Registrations`, `_registrar` or `_resolvable`
 - `name:` is not a legal Swift identifier
 - a registration calls a sibling directly instead of going through `Resolver`
 - registrations form a cycle

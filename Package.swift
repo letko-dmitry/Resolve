@@ -61,7 +61,8 @@ let package = Package(
             dependencies: [
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
-                .target(name: "Macros")
+                .target(name: "Macros"),
+                .target(name: "Resolve")
             ],
             path: "Sources/Tests",
             swiftSettings: .`default`

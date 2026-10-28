@@ -24,13 +24,13 @@
 
  ## Concurrency model of the generated `resolve()`
 
- - Every non-transient `@Register` getter is started concurrently with an
-   `async let` binding, and the bindings are awaited together when the
-   `Resolved` aggregate is built.
- - Every `@Perform` method is launched in parallel inside a
-   `withDiscardingTaskGroup` (or `withThrowingDiscardingTaskGroup` when at
-   least one performable throws), so independent setups proceed in parallel
-   alongside the registrations.
+ - It starts the task of every non-transient registration and every `@Perform`
+   method before it awaits any of them, so the whole graph is in flight at once
+   without a child task per binding.
+ - It awaits the performables, then builds the `Resolved` aggregate from the
+   registrations, and rethrows the first error it meets in that order. Tasks it
+   started are unstructured: one that is still running when `resolve()` throws
+   finishes on its own and stays cached in the `Resolver`.
 
  Each annotated method is invoked **at most once per `Resolver` lifetime** by
  default. Pass `options: .once` to a registration or performable to widen the
@@ -64,7 +64,7 @@
  ```
 
  - Parameter sort: When `true` (the default) the generated `Resolved`
-   properties and `async let` bindings are emitted in alphabetical order of the
+   properties and the tasks `resolve()` starts are emitted in alphabetical order of the
    *registration* name — the `name:` override when present, otherwise the
    function name. Set to `false` to keep declaration order. The choice changes
    the order of the stored properties on `Resolved`, and with it the order of
@@ -93,8 +93,8 @@
    so a `public` container produces types other modules can name. A `public`
    container must also be explicitly `Sendable`: public types get no implicit
    conformance, and `Resolver` stores one. A registration may not be called
-   `resolve`, `Resolved`, `Resolver`, `_registrar` or `_resolvable` — those
-   names are taken by the generated members.
+   `resolve`, `Resolved`, `Resolver`, `Registrations`, `_registrar` or
+   `_resolvable` — those names are taken by the generated members.
 
  - Note: `resolve()` is marked `@discardableResult` only when `Resolved` would
    be empty — that is, when the container declares no non-transient
@@ -183,8 +183,8 @@ public macro Resolvable(sort: Bool = true) = #externalMacro(module: "Macros", ty
       non-literal is ignored with a warning; an illegal identifier is an error.
     - options: `Registrar.Options` controlling cache scope. Use
       `Registrar.Options.once` for application-lifetime singletons; otherwise
-      leave at `Registrar.Options.default`. The expression is re-evaluated on
-      every access, so it must be constant for a given registration.
+      leave at `Registrar.Options.default`. The expression is evaluated each time
+      a `Resolver` is created, so it must be constant for a given registration.
 
  - SeeAlso: `RegisterTransient`, `Keep`, `Perform`, `Resolvable`.
  */
@@ -320,9 +320,8 @@ public macro Keep(name: String? = nil, options: Registrar.Options = .default) = 
  per `Resolver` lifetime by default, or once per process lifetime when
  `options: .once` is supplied.
 
- During `resolve()` every `@Perform` method is launched concurrently inside a
- `withDiscardingTaskGroup` (or `withThrowingDiscardingTaskGroup` when at least
- one performable throws) so independent setups proceed in parallel.
+ During `resolve()` every `@Perform` method is started together with the
+ registrations, so independent setups proceed in parallel.
 
  ## Method requirements
 

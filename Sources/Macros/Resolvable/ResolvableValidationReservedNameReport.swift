@@ -29,7 +29,7 @@ extension ResolvableValidation {
             }
         }
 
-        static let reserved: Set<String> = ["resolve", "Resolved", "Resolver", "_registrar", "_resolvable"]
+        static let reserved: Set<String> = ["resolve", "Resolved", "Resolver", "Registrations", "_registrar", "_resolvable"]
 
         let candidates: [Candidate]
 
