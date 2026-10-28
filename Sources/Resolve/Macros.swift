@@ -139,20 +139,17 @@ public macro Resolvable(sort: Bool = true) = #externalMacro(module: "Macros", ty
  nothing else. A factory isolated to some other global actor will not compile;
  mark it `async` instead.
 
- `@concurrent` (Swift 6.2) is likewise the factory's business. This package
- builds with approachable concurrency, so a `nonisolated async` function
- *inherits its caller's isolation* — `await` alone does **not** hop off the
- actor. Annotate a factory with `@concurrent` when its body does heavy
- synchronous work that must not run on a caller that is on `MainActor`. It costs
- an executor hop, so leave it off for plain construction.
+ Every factory runs in a `Task` of its own on the global concurrent executor,
+ whoever reads it first, so a graph resolved from `MainActor` launch code is
+ still built off the main actor and independent factories run in parallel. Only
+ a `@MainActor` factory runs on the main actor. `@concurrent` (Swift 6.2) is
+ therefore never needed to keep a factory off its caller's actor.
 
  ## Examples
 
  ```swift
- // Per-Resolver lifetime, no dependencies on siblings. `@concurrent` because
- // opening the stack does heavy synchronous work the caller must not absorb.
+ // Per-Resolver lifetime, no dependencies on siblings.
  @Register
- @concurrent
  func database() async throws -> any AbstractCoreDataStack { … }
 
  // Per-Resolver lifetime, depends on sibling registrations through `resolver`.
@@ -337,9 +334,7 @@ public macro Keep(name: String? = nil, options: Registrar.Options = .default) = 
  struct AssemblySystemThirdParty {
      let identificator: AssemblyEssentialIdentificator
 
-     // `@concurrent` keeps a third-party initialiser off the caller's actor.
      @Perform(options: .once)
-     @concurrent
      func firebase() async {
          FirebaseApp.configure(options: …)
      }

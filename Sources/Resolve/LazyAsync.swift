@@ -38,7 +38,7 @@ public import os.lock
  // Top-level application graph: build the resolver exactly once on first use.
  enum AssemblyResolver {
      static let essential = AssemblyEssential()
-     static let application = LazyAsync { @concurrent in
+     static let application = LazyAsync {
          await AssemblyApplication.Resolver(.init(essential: essential)).resolve()
      }
  }

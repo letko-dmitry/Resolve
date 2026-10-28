@@ -346,21 +346,11 @@ You also get a warning — and the thing you wrote is ignored — when an attrib
 
 Annotate the **factory**, not the generated member -- `@MainActor` and `@concurrent` stay on your method and are never copied onto the property or method the macro emits. `@MainActor` is the only one the macro reads, and only to decide whether the generated call needs `await`. A factory isolated to any other global actor will not compile; mark it `async` instead.
 
-Reach for `@concurrent` when the factory body does heavy synchronous work -- decryption, a large decode, parser work -- that must not run on a caller sitting on `MainActor`:
-
-```swift
-@Register
-@concurrent
-func trainingPlanProvider(_ resolver: Resolver) async throws -> TrainingPlanProvider {
-    try await TrainingPlanProvider(box: SecureBox.openJson(), storage: resolver.storage)
-}
-```
-
-For plain `.init(...)` construction leave it off: it costs an executor hop and buys nothing.
-
-**`await` alone does not hop off the actor.** Under approachable concurrency a `nonisolated async` function inherits its caller's isolation and runs its whole body there. So a graph first touched from `MainActor` launch code builds on `MainActor` unless you say otherwise -- which is why an app-wide holder is usually written `LazyAsyncThrowable { @concurrent in … }`.
+Every factory runs in a `Task` of its own on the global concurrent executor, whoever asks for it first. A graph resolved from `MainActor` launch code is still built off the main actor, and independent factories run in parallel; only a `@MainActor` factory runs on the main actor. So `@concurrent` is never needed to keep a factory off its caller's actor -- not on a factory, and not on the closure of `LazyAsync` or `LazyAsyncThrowable`, which run in a `Task` of their own as well.
 
 `Resolved`, `Resolver` and `Registrar` are `Sendable`; your container must be too.
+
+In a module whose default isolation is `MainActor` (Swift 6.2 `defaultIsolation`, which new Xcode app targets turn on), declare the container `nonisolated struct`. Otherwise every factory is implicitly `@MainActor`: a synchronous one does not compile, and an async one runs on the main actor.
 
 ## Lazy Types
 

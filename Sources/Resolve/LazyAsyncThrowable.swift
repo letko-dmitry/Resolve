@@ -58,7 +58,7 @@ public import os.lock
  // and propagate failures to whoever awaits it first.
  enum AssemblyResolver {
      static let essential = AssemblyEssential()
-     static let system = LazyAsyncThrowable { @concurrent in
+     static let system = LazyAsyncThrowable {
          try await AssemblySystem.Resolver(.init(essential: essential)).resolve()
      }
  }
