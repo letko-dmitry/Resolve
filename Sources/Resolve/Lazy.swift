@@ -5,7 +5,7 @@
 //  Created by Dzmitry Letko on 26/08/2025.
 //
 
-import os.lock
+public import os.lock
 
 /**
  A `Sendable`, thread-safe wrapper that defers a synchronous computation until
@@ -49,7 +49,7 @@ import os.lock
    own operation.
  */
 public struct Lazy<Value: Sendable>: Sendable {
-    private let state: OSAllocatedUnfairLock<State>
+    @usableFromInline let state: OSAllocatedUnfairLock<State>
     
     /**
      Creates a `Lazy` value backed by the given factory.
@@ -71,6 +71,7 @@ public struct Lazy<Value: Sendable>: Sendable {
      
      - Returns: The memoised value.
      */
+    @inlinable
     public func callAsFunction() -> Value {
         state.withLock { state in
             switch state {
@@ -88,9 +89,10 @@ public struct Lazy<Value: Sendable>: Sendable {
     }
 }
 
-// MARK: - private
-private extension Lazy {
-    enum State {
+// MARK: - Lazy.State
+extension Lazy {
+    @usableFromInline
+    enum State: Sendable {
         case loadable(@Sendable () -> Value)
         case loaded(Value)
     }

@@ -5,7 +5,7 @@
 //  Created by Dzmitry Letko on 04/08/2025.
 //
 
-import os.lock
+public import os.lock
 
 /**
  A `Sendable`, single-flight, async lazy value whose factory is allowed to
@@ -79,34 +79,15 @@ import os.lock
    (see Failure semantics above).
  */
 public final class LazyAsyncThrowable<Value: Sendable>: Sendable {
-    private let state: OSAllocatedUnfairLock<State>
-    private var resolution: Resolution<Value, any Error> {
-        state.withLock { current in
-            switch current {
-            case .resolvable(let resolvable):
-                let task = Lazy { [state] in
-                    // swiftlint:disable:next unhandled_throwing_task - the error is delivered to whoever awaits task().value
-                    Task {
-                        let value = try await resolvable()
-                        
-                        state.withLock { state in
-                            state = .resolved(value)
-                        }
-                        
-                        return value
-                    }
-                }
-                
-                current = .resolving(task)
-                
-                return .task(task)
-            
-            case .resolving(let task):
-                return .task(task)
-            
-            case .resolved(let value):
-                return .value(value)
-            }
+    @usableFromInline typealias Factory = @Sendable () async throws -> Value
+    @usableFromInline typealias State = LazyAsyncState<Factory, Value, any Error>
+
+    @usableFromInline let state: OSAllocatedUnfairLock<State>
+
+    @inlinable
+    var resolution: Resolution<Value, any Error> {
+        state.withLock { state in
+            state.resolution(Self.task)
         }
     }
 
@@ -122,9 +103,25 @@ public final class LazyAsyncThrowable<Value: Sendable>: Sendable {
        The error is *cached*: subsequent accesses re-throw it without
        retrying.
      */
+    @inlinable
     public var value: Value {
         get async throws {
-            try await resolution.value()
+            switch resolution {
+            case .value(let value):
+                return value
+
+            case .task(let task):
+                return try await task.value
+
+            case .keep(let task):
+                let value = try await task.value
+
+                state.withLock { state in
+                    state = .resolved(value)
+                }
+
+                return value
+            }
         }
     }
     
@@ -154,12 +151,10 @@ public final class LazyAsyncThrowable<Value: Sendable>: Sendable {
      returning `nil` and the cached error remains accessible only through
      `value` / `resolve()`.
      */
+    @inlinable
     public var valueIfResolved: Value? {
         state.withLock { state in
-            switch state {
-            case .resolvable, .resolving: return nil
-            case .resolved(let value): return value
-            }
+            state.value
         }
     }
     
@@ -218,11 +213,14 @@ public final class LazyAsyncThrowable<Value: Sendable>: Sendable {
     }
 }
 
-// MARK: - private
-private extension LazyAsyncThrowable {
-    enum State {
-        case resolvable(@Sendable () async throws -> Value)
-        case resolving(Lazy<Task<Value, any Error>>)
-        case resolved(Value)
+// Deliberately not inlinable: the inlined `value` only calls in here on the first access, so the `Task` creation is
+// emitted once in this module instead of at every read.
+extension LazyAsyncThrowable {
+    @usableFromInline
+    static func task(_ resolve: @escaping Factory) -> Task<Value, any Error> {
+        // swiftlint:disable:next unhandled_throwing_task - the error is delivered to whoever awaits task.value
+        Task {
+            try await resolve()
+        }
     }
 }

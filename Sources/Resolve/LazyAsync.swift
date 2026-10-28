@@ -5,7 +5,7 @@
 //  Created by Dzmitry Letko on 10/02/2025.
 //
 
-import os.lock
+public import os.lock
 
 /**
  A `Sendable`, single-flight, async lazy value.
@@ -56,33 +56,15 @@ import os.lock
    in-flight task.
  */
 public final class LazyAsync<Value: Sendable>: Sendable {
-    private let state: OSAllocatedUnfairLock<State>
-    private var resolution: Resolution<Value, Never> {
-        state.withLock { current in
-            switch current {
-            case .resolvable(let resolvable):
-                let task = Lazy { [state] in
-                    Task {
-                        let value = await resolvable()
-                        
-                        state.withLock { state in
-                            state = .resolved(value)
-                        }
-                        
-                        return value
-                    }
-                }
-                
-                current = .resolving(task)
-                
-                return .task(task)
-            
-            case .resolving(let task):
-                return .task(task)
-            
-            case .resolved(let value):
-                return .value(value)
-            }
+    @usableFromInline typealias Factory = @Sendable () async -> Value
+    @usableFromInline typealias State = LazyAsyncState<Factory, Value, Never>
+
+    @usableFromInline let state: OSAllocatedUnfairLock<State>
+
+    @inlinable
+    var resolution: Resolution<Value, Never> {
+        state.withLock { state in
+            state.resolution(Self.task)
         }
     }
 
@@ -93,9 +75,25 @@ public final class LazyAsync<Value: Sendable>: Sendable {
      in-flight `Task` and return as soon as it produces a value. Subsequent
      accesses skip the `Task` entirely and return the cached value.
      */
+    @inlinable
     public var value: Value {
         get async {
-            await resolution.value()
+            switch resolution {
+            case .value(let value):
+                return value
+
+            case .task(let task):
+                return await task.value
+
+            case .keep(let task):
+                let value = await task.value
+
+                state.withLock { state in
+                    state = .resolved(value)
+                }
+
+                return value
+            }
         }
     }
     
@@ -123,12 +121,10 @@ public final class LazyAsync<Value: Sendable>: Sendable {
      never waits. Useful when you want to read the value if it is ready
      without forcing resolution from a synchronous context.
      */
+    @inlinable
     public var valueIfResolved: Value? {
         state.withLock { state in
-            switch state {
-            case .resolvable, .resolving: return nil
-            case .resolved(let value): return value
-            }
+            state.value
         }
     }
     
@@ -178,11 +174,13 @@ public final class LazyAsync<Value: Sendable>: Sendable {
     }
 }
 
-// MARK: - private
-private extension LazyAsync {
-    enum State {
-        case resolvable(@Sendable () async -> Value)
-        case resolving(Lazy<Task<Value, Never>>)
-        case resolved(Value)
+// Deliberately not inlinable: the inlined `value` only calls in here on the first access, so the `Task` creation is
+// emitted once in this module instead of at every read.
+extension LazyAsync {
+    @usableFromInline
+    static func task(_ resolve: @escaping Factory) -> Task<Value, Never> {
+        Task {
+            await resolve()
+        }
     }
 }

@@ -5,7 +5,7 @@
 //  Created by Dzmitry Letko on 26/08/2025.
 //
 
-import os.lock
+public import os.lock
 
 /**
  A `Sendable`, thread-safe wrapper that defers a throwing synchronous
@@ -45,7 +45,7 @@ import os.lock
    inside its own factory.
  */
 public struct LazyThrowable<Value: Sendable>: Sendable {
-    private let state: OSAllocatedUnfairLock<State>
+    @usableFromInline let state: OSAllocatedUnfairLock<State>
     
     /**
      Creates a `LazyThrowable` value backed by the given throwing factory.
@@ -68,6 +68,7 @@ public struct LazyThrowable<Value: Sendable>: Sendable {
      - Returns: The memoised value.
      - Throws: Whatever the underlying factory throws.
      */
+    @inlinable
     public func callAsFunction() throws -> Value {
         try state.withLock { state in
             switch state {
@@ -85,9 +86,10 @@ public struct LazyThrowable<Value: Sendable>: Sendable {
     }
 }
 
-// MARK: - private
-private extension LazyThrowable {
-    enum State {
+// MARK: - LazyThrowable.State
+extension LazyThrowable {
+    @usableFromInline
+    enum State: Sendable {
         case loadable(@Sendable () throws -> Value)
         case loaded(Value)
     }
