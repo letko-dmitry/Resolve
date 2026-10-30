@@ -16,7 +16,8 @@ public import os.lock
  running the factory again.
  */
 public struct RegistrationThrowable<R: Sendable, V: Sendable>: Sendable {
-    @usableFromInline typealias Factory = @Sendable (R) async throws -> V
+    // `@concurrent` for the same reason as `Registration.Factory`.
+    @usableFromInline typealias Factory = @concurrent @Sendable (R) async throws -> V
     @usableFromInline typealias State = LazyAsyncState<Factory, V, any Error>
 
     @usableFromInline let once: Bool
@@ -31,7 +32,7 @@ public struct RegistrationThrowable<R: Sendable, V: Sendable>: Sendable {
         - make: The factory. It is handed the resolver when its task starts.
      */
     @export(implementation)
-    public init(options: Registrar.Options = .default, _ make: @escaping @Sendable (R) async throws -> V) {
+    public init(options: Registrar.Options = .default, _ make: @escaping @concurrent @Sendable (R) async throws -> V) {
         self.once = options.once
         self.state = OSAllocatedUnfairLock(initialState: .resolvable(make))
     }

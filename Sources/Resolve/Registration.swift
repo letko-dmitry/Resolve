@@ -21,7 +21,10 @@ public import os.lock
  resolver's `Registrations`. You should not create one from hand-written code.
  */
 public struct Registration<R: Sendable, V: Sendable>: Sendable {
-    @usableFromInline typealias Factory = @Sendable (R) async -> V
+    // `@concurrent`, not the module's caller-isolated default: the factory only ever runs as the body of its own task,
+    // and a caller-isolated one would hop back to that task's executor after calling the container – and its type,
+    // unknown to runtimes before Swift 6.2, would make every registration emit metadata accessors for its state.
+    @usableFromInline typealias Factory = @concurrent @Sendable (R) async -> V
     @usableFromInline typealias State = LazyAsyncState<Factory, V, Never>
 
     @usableFromInline let once: Bool
@@ -36,7 +39,7 @@ public struct Registration<R: Sendable, V: Sendable>: Sendable {
         - make: The factory. It is handed the resolver when its task starts.
      */
     @export(implementation)
-    public init(options: Registrar.Options = .default, _ make: @escaping @Sendable (R) async -> V) {
+    public init(options: Registrar.Options = .default, _ make: @escaping @concurrent @Sendable (R) async -> V) {
         self.once = options.once
         self.state = OSAllocatedUnfairLock(initialState: .resolvable(make))
     }
