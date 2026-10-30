@@ -79,7 +79,7 @@ private extension ResolverBuilder {
                     """
                     \(declaration.access)var \(registrable.name): \(registrable.function.type) {
                         get async throws {
-                            try await \(value(registrable.name))
+                            try await \(value(registrable.name, registrable.attribute.options))
                         }
                     }
                     """
@@ -87,7 +87,7 @@ private extension ResolverBuilder {
                     """
                     \(declaration.access)var \(registrable.name): \(registrable.function.type) {
                         get async {
-                            await \(value(registrable.name))
+                            await \(value(registrable.name, registrable.attribute.options))
                         }
                     }
                     """
@@ -102,13 +102,13 @@ private extension ResolverBuilder {
                 if performable.function.throwable {
                     """
                     \(declaration.access)func \(performable.name)() async throws {
-                        try await \(value(performable.name))
+                        try await \(value(performable.name, performable.attribute.options))
                     }
                     """
                 } else {
                     """
                     \(declaration.access)func \(performable.name)() async {
-                        await \(value(performable.name))
+                        await \(value(performable.name, performable.attribute.options))
                     }
                     """
                 }
@@ -139,22 +139,26 @@ private extension ResolverBuilder {
     // Every task is started before any is awaited, so the whole graph is in flight at once without a child task each.
     func taskStarts() -> CodeBlockItemListSyntax {
         CodeBlockItemListSyntax(separator: "\n") {
-            for name in registrables.nontransient.map(\.name) + performables.all.map(\.name) {
-                start(name)
+            for registrable in registrables.nontransient {
+                start(registrable.name, registrable.attribute.options)
+            }
+
+            for performable in performables.all {
+                start(performable.name, performable.attribute.options)
             }
         }
     }
 
     func resolution() -> CodeBlockItemListSyntax {
         CodeBlockItemListSyntax(separator: "\n\n") {
-            performables.all.map { "\($0.function.throwable ? "try " : "")await \(value($0.name))" }.joined(separator: "\n")
+            performables.all.map { "\($0.function.throwable ? "try " : "")await \(value($0.name, $0.attribute.options))" }.joined(separator: "\n")
 
             if registrables.nontransient.isEmpty {
                 "return .init()"
             } else {
                 """
                 return \(throwableRegistrables ? "try " : "")await .init(
-                    \(registrables.nontransient.map { "\($0.name.unescaped): \(value($0.name))" }.joined(separator: ",\n    "))
+                    \(registrables.nontransient.map { "\($0.name.unescaped): \(value($0.name, $0.attribute.options))" }.joined(separator: ",\n    "))
                 )
                 """
             }
@@ -208,12 +212,29 @@ private extension ResolverBuilder {
         return "\(throwable ? "try " : "")\(concurrent ? "await " : "")resolver._\(declaration.name).\(function)(\(argument))"
     }
 
-    func start(_ name: TokenSyntax) -> String {
-        "_\(registrar.name).\(name).start(self)"
+    func start(_ name: TokenSyntax, _ options: ExprSyntax?) -> String {
+        "\(reference(name, options)).start(self)"
     }
 
-    func value(_ name: TokenSyntax) -> String {
-        "_\(registrar.name).\(name).value(self)"
+    func value(_ name: TokenSyntax, _ options: ExprSyntax?) -> String {
+        "\(reference(name, options)).value(self)"
+    }
+
+    func reference(_ name: TokenSyntax, _ options: ExprSyntax?) -> String {
+        switch options?.trimmedDescription {
+        case nil, ".default", "Registrar.Options.default", "Resolve.Registrar.Options.default":
+            "_\(registrar.name).local.\(name)"
+
+        case ".once", "Registrar.Options.once", "Resolve.Registrar.Options.once", ".singleton", "Registrar.Options.singleton", "Resolve.Registrar.Options.singleton":
+            "_\(registrar.name).global.\(name)"
+
+        default:
+            // As a member, `local` or `global` would be the storage's own instance rather than the registration.
+            switch name.unescaped {
+            case "local", "global": "_\(registrar.name)[dynamicMember: \\.\(name)]"
+            default: "_\(registrar.name).\(name)"
+            }
+        }
     }
 }
 

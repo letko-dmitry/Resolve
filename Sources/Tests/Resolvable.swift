@@ -45,6 +45,14 @@ final class ResolvableTests: XCTestCase {
         #endif
     }
 
+    func testRunTimeOptions() throws {
+        #if canImport(Macros)
+        assertMacroExpansion(Self.runTimeOptionsSource, expandedSource: Self.runTimeOptionsExpanded, macros: macros)
+        #else
+        throw XCTSkip("macros are only supported when running tests for the host platform")
+        #endif
+    }
+
     func testQualifiedResolverParameter() throws {
         #if canImport(Macros)
         assertMacroExpansion(Self.qualifiedSource, expandedSource: Self.qualifiedExpanded, macros: macros)
@@ -97,7 +105,7 @@ private extension ResolvableTests {
 
                 var database: Database {
                     get async throws {
-                        try await _registrar.database.value(self)
+                        try await _registrar.local.database.value(self)
                     }
                 }
 
@@ -106,10 +114,10 @@ private extension ResolvableTests {
                 }
 
                 func resolve() async throws -> Resolved {
-                    _registrar.database.start(self)
+                    _registrar.local.database.start(self)
 
                     return try await .init(
-                        database: _registrar.database.value(self)
+                        database: _registrar.local.database.value(self)
                     )
                 }
 
@@ -151,14 +159,14 @@ private extension ResolvableTests {
                 }
 
                 func warmUp() async {
-                    await _registrar.warmUp.value(self)
+                    await _registrar.local.warmUp.value(self)
                 }
 
                 @discardableResult
                 func resolve() async -> Resolved {
-                    _registrar.warmUp.start(self)
+                    _registrar.local.warmUp.start(self)
 
-                    await _registrar.warmUp.value(self)
+                    await _registrar.local.warmUp.value(self)
 
                     return .init()
                 }
@@ -207,7 +215,7 @@ private extension ResolvableTests {
 
                 var reporter: Reporter {
                     get async {
-                        await _registrar.reporter.value(self)
+                        await _registrar.global.reporter.value(self)
                     }
                 }
 
@@ -216,17 +224,17 @@ private extension ResolvableTests {
                 }
 
                 func warmUp() async throws {
-                    try await _registrar.warmUp.value(self)
+                    try await _registrar.local.warmUp.value(self)
                 }
 
                 func resolve() async throws -> Resolved {
-                    _registrar.reporter.start(self)
-                    _registrar.warmUp.start(self)
+                    _registrar.global.reporter.start(self)
+                    _registrar.local.warmUp.start(self)
 
-                    try await _registrar.warmUp.value(self)
+                    try await _registrar.local.warmUp.value(self)
 
                     return await .init(
-                        reporter: _registrar.reporter.value(self)
+                        reporter: _registrar.global.reporter.value(self)
                     )
                 }
 
@@ -237,6 +245,77 @@ private extension ResolvableTests {
 
                     let warmUp = Resolve.RegistrationThrowable { (resolver: Resolver) in
                         try await resolver._resolvable.warmUp(resolver)
+                    }
+                }
+            }
+        }
+        """
+}
+
+// MARK: - private
+private extension ResolvableTests {
+    static let runTimeOptionsSource = """
+        @Resolvable
+        struct Container {
+            @Register(options: flags)
+            func reporter() -> Reporter {
+                Reporter()
+            }
+
+            @Perform(options: flags)
+            func global() async {
+            }
+        }
+        """
+
+    static let runTimeOptionsExpanded = """
+        struct Container {
+            func reporter() -> Reporter {
+                Reporter()
+            }
+            func global() async {
+            }
+
+            struct Resolved: Sendable {
+                let reporter: Reporter
+            }
+
+            struct Resolver: Sendable {
+                private let _registrar = Resolve.Registrar.Storage(Registrations())
+                private let _resolvable: Container
+
+                var reporter: Reporter {
+                    get async {
+                        await _registrar.reporter.value(self)
+                    }
+                }
+
+                init(_ resolvable: Container) {
+                    self._resolvable = resolvable
+                }
+
+                func global() async {
+                    await _registrar[dynamicMember: \\.global].value(self)
+                }
+
+                func resolve() async -> Resolved {
+                    _registrar.reporter.start(self)
+                    _registrar[dynamicMember: \\.global].start(self)
+
+                    await _registrar[dynamicMember: \\.global].value(self)
+
+                    return await .init(
+                        reporter: _registrar.reporter.value(self)
+                    )
+                }
+
+                private final class Registrations: Sendable {
+                    let reporter = Resolve.Registration(options: flags) { (resolver: Resolver) in
+                        resolver._resolvable.reporter()
+                    }
+
+                    let global = Resolve.Registration(options: flags) { (resolver: Resolver) in
+                        await resolver._resolvable.global()
                     }
                 }
             }
@@ -272,7 +351,7 @@ private extension ResolvableTests {
 
                 var database: Database {
                     get async {
-                        await _registrar.database.value(self)
+                        await _registrar.local.database.value(self)
                     }
                 }
 
@@ -281,10 +360,10 @@ private extension ResolvableTests {
                 }
 
                 func resolve() async -> Resolved {
-                    _registrar.database.start(self)
+                    _registrar.local.database.start(self)
 
                     return await .init(
-                        database: _registrar.database.value(self)
+                        database: _registrar.local.database.value(self)
                     )
                 }
 

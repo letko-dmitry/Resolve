@@ -114,10 +114,15 @@ public struct Registrar: Sendable {
      The registrations of one generated `Resolver`: its own and the
      process-wide ones shared by every `Resolver` of the container type.
 
-     A registration is reached as a dynamic member, `_registrar.database`, which
-     is a key path to the stored property inlined at the call site: it compiles
-     to a plain field load, with no key to hash and nothing to cast. The
-     registrations themselves never change; each one guards its own state.
+     When a registration's `options:` argument is left out or names a preset
+     literally – `.default` or `.once`, qualified or not – the macro knows its
+     instance and reaches the registration straight through it:
+     `_registrar.local.database`, `_registrar.global.featureFlags`. Any other
+     expression is known only at run time, so that registration is reached as
+     a dynamic member, `_registrar.database`, which selects the instance by
+     `once` at every access. Either way the stored property compiles to a plain
+     field load, with no key to hash and nothing to cast. The registrations
+     themselves never change; each one guards its own state.
 
      Generated code creates one per `Resolver`. You should not create one from
      hand-written code.
@@ -125,8 +130,18 @@ public struct Registrar: Sendable {
     @dynamicMemberLookup
     public struct Storage<Registrations: AnyObject & Sendable>: Sendable {
         // References, so that the copies of a `Resolver` – one in every task it starts – share one set of registrations.
-        @usableFromInline let local: Registrations
-        @usableFromInline let global: Registrations
+
+        /**
+         The resolver's own registrations, where those with `Options.default`
+         live.
+         */
+        public let local: Registrations
+
+        /**
+         The process-wide registrations of the container type – the local ones
+         of its first `Resolver` – where those with `Options.once` live.
+         */
+        public let global: Registrations
 
         /**
          Creates the storage of a `Resolver`.

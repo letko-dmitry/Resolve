@@ -302,7 +302,7 @@ func featureFlags() -> FeatureFlags {
 }
 ```
 
-Pass a constant. The value is re-read on every access, so deriving it from a runtime flag sends the same registration to the per-`Resolver` cache on one read and the process-wide one on the next -- leaving you with two live values under one name.
+Pass a constant. The expression is evaluated each time a `Resolver` is created, so deriving it from a runtime flag can send the same registration to the per-`Resolver` cache for one `Resolver` and the process-wide one for the next -- leaving you with two live values under one name.
 
 ## Reaching Siblings
 
