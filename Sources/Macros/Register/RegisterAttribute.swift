@@ -5,10 +5,10 @@
 //  Created by Dzmitry Letko on 16/10/2023.
 //
 
-import SwiftSyntax
-import SwiftSyntaxMacros
 import SwiftDiagnostics
+import SwiftSyntax
 import SwiftSyntaxBuilder
+import SwiftSyntaxMacros
 
 struct RegisterAttribute {
     enum Kind {

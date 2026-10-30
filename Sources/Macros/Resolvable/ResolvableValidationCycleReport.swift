@@ -6,10 +6,10 @@
 //
 
 import Algorithms
+import OrderedCollections
 import SwiftDiagnostics
 import SwiftSyntax
 import SwiftSyntaxMacros
-import OrderedCollections
 
 extension ResolvableValidation {
     struct CycleReport {
@@ -46,7 +46,7 @@ extension ResolvableValidation {
             cycles.forEach { cycle in
                 guard let first = cycle.first else { return }
 
-                let path = chain(cycle, [first]).map { "'\($0.name)'" }.joined(separator: " → ")
+                let path = chain(cycle, [first]).lazy.map { "'\($0.name)'" }.joined(separator: " → ")
                 let message = MacroExpansionErrorMessage("Dependency cycle: \(path) – resolving it would never finish")
                 let notes = cycle.dropFirst().map { candidate in
                     Note(

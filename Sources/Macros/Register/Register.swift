@@ -9,7 +9,7 @@ public import SwiftSyntax
 public import SwiftSyntaxMacros
 
 public struct Register: PeerMacro {
-    public static func expansion(of node: AttributeSyntax, providingPeersOf declaration: some DeclSyntaxProtocol, in context: some MacroExpansionContext) throws -> [DeclSyntax] {
+    public static func expansion(of node: AttributeSyntax, providingPeersOf declaration: some DeclSyntaxProtocol, in context: some MacroExpansionContext) -> [DeclSyntax] {
         ValidationMacroPlacement.validate(attribute: node, declaration: declaration, in: context)
 
         return []

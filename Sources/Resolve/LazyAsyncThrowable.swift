@@ -218,7 +218,6 @@ public final class LazyAsyncThrowable<Value: Sendable>: Sendable {
 extension LazyAsyncThrowable {
     @usableFromInline
     static func task(_ resolve: @escaping Factory) -> Task<Value, any Error> {
-        // swiftlint:disable:next unhandled_throwing_task - the error is delivered to whoever awaits task.value
         Task {
             try await resolve()
         }

@@ -48,7 +48,7 @@
 
      @Register
      func database() async throws -> any AbstractCoreDataStack {
-         try await CoreDataStackBuilder(/* … */).make()
+         try await CoreDataStackBuilder().make()
      }
 
      @Register(options: .once)

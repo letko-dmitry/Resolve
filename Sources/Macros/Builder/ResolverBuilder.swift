@@ -5,9 +5,9 @@
 //  Created by Dzmitry Letko on 16/10/2023.
 //
 
+import SwiftParser
 import SwiftSyntax
 import SwiftSyntaxBuilder
-import SwiftParser
 
 struct ResolverBuilder {
     struct Registrar {
@@ -118,7 +118,7 @@ private extension ResolverBuilder {
 
     @CodeBlockItemListBuilder
     func resolve() -> CodeBlockItemListSyntax {
-        if registrables.nontransient.isEmpty && performables.all.isEmpty {
+        if registrables.nontransient.isEmpty, performables.all.isEmpty {
             """
             @discardableResult
             \(raw: declaration.access)func resolve() -> Resolved {
@@ -220,11 +220,11 @@ private extension ResolverBuilder {
 // MARK: - private
 private extension ResolverBuilder {
     var throwable: Bool {
-        throwableRegistrables || performables.all.contains { $0.function.throwable }
+        throwableRegistrables || performables.all.contains(where: \.function.throwable)
     }
 
     var throwableRegistrables: Bool {
-        registrables.nontransient.contains { $0.function.throwable }
+        registrables.nontransient.contains(where: \.function.throwable)
     }
 
     // Only an empty `Resolved` is safe to discard.

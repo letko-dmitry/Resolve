@@ -5,10 +5,10 @@
 //  Created by Dzmitry Letko on 09/08/2026.
 //
 
+import OrderedCollections
 import SwiftDiagnostics
 import SwiftSyntax
 import SwiftSyntaxMacros
-import OrderedCollections
 
 extension ResolvableValidation {
     struct UniquenessReport {
@@ -35,7 +35,7 @@ extension ResolvableValidation {
         let cases: [Case]
 
         var dropped: Set<FunctionDeclSyntax> {
-            Set(cases.flatMap { $0.redeclarations.map { $0.node } })
+            Set(cases.flatMap { $0.redeclarations.map(\.node) })
         }
 
         static func make(registrables: [Registrable], performables: [Performable]) -> UniquenessReport {

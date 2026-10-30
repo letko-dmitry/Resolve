@@ -1,8 +1,8 @@
 // swift-tools-version: 6.3
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
-import PackageDescription
 import CompilerPluginSupport
+import PackageDescription
 
 let package = Package(
     name: "Resolve",
@@ -38,7 +38,7 @@ let package = Package(
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax")
             ],
             path: "Sources/Macros",
-            swiftSettings: .`default`
+            swiftSettings: .default
         ),
         .target(
             name: "Resolve",
@@ -46,7 +46,7 @@ let package = Package(
                 .target(name: "Macros")
             ],
             path: "Sources/Resolve",
-            swiftSettings: .`default`
+            swiftSettings: .default
         ),
         .executableTarget(
             name: "Playground",
@@ -54,7 +54,7 @@ let package = Package(
                 .target(name: "Resolve")
             ],
             path: "Sources/Playground",
-            swiftSettings: .`default`
+            swiftSettings: .default
         ),
         .testTarget(
             name: "Tests",
@@ -65,7 +65,7 @@ let package = Package(
                 .target(name: "Resolve")
             ],
             path: "Sources/Tests",
-            swiftSettings: .`default`
+            swiftSettings: .default
         )
     ]
 )

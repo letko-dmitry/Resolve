@@ -5,9 +5,9 @@
 //  Created by Dzmitry Letko on 09/08/2026.
 //
 
+import SwiftDiagnostics
 import SwiftSyntax
 import SwiftSyntaxMacros
-import SwiftDiagnostics
 
 enum ValidationMacroPlacement {
     static func validate(attribute node: AttributeSyntax, declaration: some DeclSyntaxProtocol, in context: some MacroExpansionContext) {

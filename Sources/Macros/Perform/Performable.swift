@@ -6,10 +6,10 @@
 //
 
 import Foundation
-import SwiftSyntax
-import SwiftSyntaxMacros
 import SwiftDiagnostics
+import SwiftSyntax
 import SwiftSyntaxBuilder
+import SwiftSyntaxMacros
 
 struct Performables {
     let all: [Performable]

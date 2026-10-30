@@ -5,11 +5,11 @@
 //  Created by Dzmitry Letko on 09/08/2026.
 //
 
-import SwiftSyntax
 import OrderedCollections
+import SwiftSyntax
 
 extension ResolvableValidation {
-        struct BodyScan {
+    struct BodyScan {
         struct Call {
             let node: FunctionCallExprSyntax
             let shadowable: Bool
@@ -29,8 +29,8 @@ extension ResolvableValidation {
             visitor.walk(body)
 
             return .init(
-                calls: Dictionary(grouping: visitor.calls) { $0.name }.mapValues { calls in calls.map { $0.call } },
-                members: Dictionary(grouping: visitor.members) { $0.base }.mapValues { members in OrderedSet(members.map { $0.member }) },
+                calls: Dictionary(grouping: visitor.calls) { $0.name }.mapValues { calls in calls.map(\.call) },
+                members: Dictionary(grouping: visitor.members) { $0.base }.mapValues { members in OrderedSet(members.map(\.member)) },
                 shadowed: visitor.shadowed
             )
         }

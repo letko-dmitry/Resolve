@@ -5,9 +5,9 @@
 //  Created by Dzmitry Letko on 16/10/2023.
 //
 
+import SwiftDiagnostics
 import SwiftSyntax
 import SwiftSyntaxMacros
-import SwiftDiagnostics
 
 struct PerformAttribute {
     let options: ExprSyntax?

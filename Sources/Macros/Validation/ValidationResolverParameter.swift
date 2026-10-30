@@ -35,7 +35,7 @@ extension ResolverParameter {
         case .wildcard:
             return .present(.init(label: nil))
 
-        case let .identifier(identifier):
+        case .identifier(let identifier):
             return .present(.init(label: .init(stringLiteral: identifier)))
 
         default:

@@ -5,9 +5,9 @@
 //  Created by Dzmitry Letko on 09/08/2026.
 //
 
+import SwiftDiagnostics
 import SwiftSyntax
 import SwiftSyntaxMacros
-import SwiftDiagnostics
 
 enum ValidationFunctionShape {
     static func validate(_ function: FunctionDeclSyntax, in context: some MacroExpansionContext) -> Bool {

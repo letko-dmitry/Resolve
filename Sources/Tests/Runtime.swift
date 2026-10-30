@@ -86,7 +86,7 @@ private extension RuntimeTests {
         }
     }
 
-    final class Node: Sendable {}
+    final class Node: Sendable { }
 
     @Resolvable
     struct Graph {
@@ -111,6 +111,7 @@ private extension RuntimeTests {
         }
 
         @Perform
+        // swiftlint:disable:next async_without_await - an async performable is the shape under test
         func fail() async throws {
             throw CancellationError()
         }

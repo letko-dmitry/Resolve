@@ -24,7 +24,7 @@ extension AttributeCandidate {
         guard let candidate = candidates.first else { return nil }
 
         if candidates.count > 1 {
-            let dropped = candidates.dropFirst().map { $0.node }
+            let dropped = candidates.dropFirst().map(\.node)
             let drop = Set(dropped)
             let new = attributes.filter { element in
                 if let attribute = element.as(AttributeSyntax.self) {

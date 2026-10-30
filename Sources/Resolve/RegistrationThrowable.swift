@@ -94,7 +94,6 @@ public struct RegistrationThrowable<R: Sendable, V: Sendable>: Sendable {
 extension RegistrationThrowable {
     @usableFromInline
     static func task(_ make: @escaping Factory, _ resolver: R) -> Task<V, any Error> {
-        // swiftlint:disable:next unhandled_throwing_task - the error is delivered to whoever awaits task.value
         Task {
             try await make(resolver)
         }

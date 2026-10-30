@@ -1,6 +1,6 @@
 //
 //  StringCollectionBuilder.swift
-//  
+//
 //
 //  Created by Dzmitry Letko on 17/10/2023.
 //
@@ -20,7 +20,7 @@ enum StringCollectionBuilder {
     }
     
     static func buildArray(_ components: [[String]]) -> [String] {
-        components.flatMap { $0 }
+        components.flatMap(\.self)
     }
     
     static func buildExpression(_ expression: String) -> [String] {
