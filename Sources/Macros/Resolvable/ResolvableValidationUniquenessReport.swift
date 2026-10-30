@@ -40,7 +40,7 @@ extension ResolvableValidation {
 
         static func make(registrables: [Registrable], performables: [Performable]) -> UniquenessReport {
             let candidates = registrables.map(Candidate.init(_:)) + performables.map(Candidate.init(_:))
-            let candidatesByName = OrderedDictionary(grouping: candidates) { $0.name.text }
+            let candidatesByName = OrderedDictionary(grouping: candidates, by: \.name.text)
             let cases: [Case] = candidatesByName.compactMap { _, candidates in
                 guard let first = candidates.first, candidates.count >= 2 else { return nil }
 

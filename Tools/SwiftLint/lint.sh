@@ -1,11 +1,14 @@
 #!/bin/sh
 #
-# Lints the whole package against the root .swiftlint.yml. Run it after Tools/SwiftFormat/format.sh, so anything
-# the formatter can fix never reaches the linter; safe to run from anywhere:
+# Lints the whole package against the root .swiftlint.yml. Invoked automatically by the SwiftLint build
+# pre-action on the shared Resolve-Package scheme, right after the SwiftFormat one, so the formatter has already
+# fixed whatever it can; safe to run by hand from anywhere, after Tools/SwiftFormat/format.sh.
 #
 #     Tools/SwiftLint/lint.sh
 #
-# Arguments are passed on to `swiftlint lint` — `--strict` fails on warnings too.
+# Arguments are passed on to `swiftlint lint`. The pre-action passes --strict, which fails on warnings too: a
+# pre-action cannot put a warning in Xcode's issue navigator, so a violation either stops the build with
+# SwiftLint's message or goes unseen in the log.
 #
 # The binary is downloaded from the pinned GitHub release on first use and cached outside the repository, the same
 # way Tools/SwiftFormat/format.sh does it and for the same reasons: a fresh clone needs no setup, every machine runs

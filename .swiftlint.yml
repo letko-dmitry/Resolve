@@ -2,7 +2,9 @@
 # RULES URL: https://github.com/realm/SwiftLint/blob/master/Rules.md
 # RULES CONFIG URL: https://github.com/realm/SwiftLint/tree/master/Source/SwiftLintFramework/Rules/RuleConfigurations
 #
-# Run it with Tools/SwiftLint/lint.sh, after Tools/SwiftFormat/format.sh.
+# The pre-action of the shared Resolve-Package scheme lints, right after formatting, before every Xcode build.
+# To run it by hand:
+#     Tools/SwiftLint/lint.sh
 
 included:
     - Sources

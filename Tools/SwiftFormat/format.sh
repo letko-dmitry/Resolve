@@ -1,12 +1,14 @@
 #!/bin/sh
 #
-# Formats the whole package in place against the root .swiftformat; safe to run from anywhere:
+# Formats the whole package in place against the root .swiftformat. Invoked automatically by the SwiftFormat
+# build pre-action on the shared Resolve-Package scheme, before the SwiftLint one; safe to run by hand from
+# anywhere. `swift build` runs no pre-action, so run both scripts by hand there.
 #
 #     Tools/SwiftFormat/format.sh
 #
-# It rewrites files rather than checking them, and that is the point: run before Tools/SwiftLint/lint.sh, it
-# fixes everything the formatter can before the linter sees it. Do not add --lint or --dryrun — that would hand
-# the race back to the linter.
+# It rewrites files rather than checking them, and that is the point: anything the formatter can fix is already
+# fixed by the time the linter sees it. Do not add --lint or --dryrun — that would hand the race back to the
+# linter.
 #
 # The binary is downloaded from the pinned GitHub release on first use and cached outside the repository, so a
 # fresh clone still needs no setup and every machine runs the same version. It is NOT committed: git does not

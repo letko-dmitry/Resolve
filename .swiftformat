@@ -8,7 +8,9 @@
 # linter would report, and disabled when it would rewrite code into a lint violation or against a style this
 # code keeps on purpose.
 #
-# Run it with Tools/SwiftFormat/format.sh, before Tools/SwiftLint/lint.sh.
+# The pre-action of the shared Resolve-Package scheme formats in place before every Xcode build. To run it by
+# hand:
+#     Tools/SwiftFormat/format.sh
 
 
 # --- Options ------------------------------------------------------------------------------------

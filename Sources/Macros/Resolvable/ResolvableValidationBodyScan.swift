@@ -29,8 +29,8 @@ extension ResolvableValidation {
             visitor.walk(body)
 
             return .init(
-                calls: Dictionary(grouping: visitor.calls) { $0.name }.mapValues { calls in calls.map(\.call) },
-                members: Dictionary(grouping: visitor.members) { $0.base }.mapValues { members in OrderedSet(members.map(\.member)) },
+                calls: Dictionary(grouping: visitor.calls, by: \.name).mapValues { $0.map(\.call) },
+                members: Dictionary(grouping: visitor.members, by: \.base).mapValues { OrderedSet($0.map(\.member)) },
                 shadowed: visitor.shadowed
             )
         }
