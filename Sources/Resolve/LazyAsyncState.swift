@@ -18,12 +18,15 @@ enum LazyAsyncState<Factory: Sendable, Value: Sendable, Failure: Error>: Sendabl
 }
 
 extension LazyAsyncState {
+    // `start` and `resolution` switch over `consume self` and put a state back on every path: a switch over `self`
+    // would copy the whole state – through value witnesses when the value is an existential – and destroy the copy.
+
     // Starts the factory's task unless something has started it already.
     @export(implementation)
     mutating func start(_ start: (Factory) -> Task<Value, Failure>) {
-        switch self {
+        switch consume self {
         case .resolvable(let factory): self = .started(start(factory))
-        case .started, .resolving, .resolved: break
+        case let state: self = state
         }
     }
 
@@ -32,7 +35,7 @@ extension LazyAsyncState {
     // new task in place, while the lock is still held, and the task taking the lock again would deadlock.
     @export(implementation)
     mutating func resolution(_ start: (Factory) -> Task<Value, Failure>) -> Resolution<Value, Failure> {
-        switch self {
+        switch consume self {
         case .resolvable(let factory):
             let task = start(factory)
 
@@ -46,9 +49,13 @@ extension LazyAsyncState {
             return .task(task, keep: true)
 
         case .resolving(let task):
+            self = .resolving(task)
+
             return .task(task, keep: false)
 
         case .resolved(let value):
+            self = .resolved(value)
+
             return .value(value)
         }
     }
