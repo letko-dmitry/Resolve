@@ -28,7 +28,7 @@ public struct RegistrationThrowable<R: Sendable, V: Sendable>: Sendable {
 
      - Parameters:
         - options: Cache scope. `Options.once` makes every `Resolver` of the
-          container share the process-wide copy of the registration.
+          container share the process-wide registration.
         - make: The factory. It is handed the resolver when its task starts.
      */
     @export(implementation)

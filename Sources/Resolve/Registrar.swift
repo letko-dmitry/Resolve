@@ -14,14 +14,14 @@ import os.lock
  because the generated code lives in the consumer's module and must be able to
  refer to them.
 
- Every generated `Resolver` declares a private `Registrations` struct with one
+ Every generated `Resolver` declares a private `Registrations` class with one
  `Registration` or `RegistrationThrowable` per `Register`, `RegisterTransient`,
- `Keep` and `Perform`, and keeps two copies of it in a `Registrar.Storage`:
+ `Keep` and `Perform`, and keeps two instances of it in a `Registrar.Storage`:
 
  - a *local* one, used by `Options.default` registrations and tied to the
    lifetime of the `Resolver`;
- - a *global* one shared by every `Resolver` of the same container type,
-   created by the first of them and used by registrations that opt into
+ - a *global* one shared by every `Resolver` of the same container type, the
+   local one of the first of them, used by registrations that opt into
    `Options.once`.
 
  The combination guarantees that:
@@ -56,12 +56,12 @@ public struct Registrar: Sendable {
          Prefer the static presets `Options.default` and `Options.once`.
 
          - Warning: The `options:` expression is evaluated each time a `Resolver`
-           is created, and the value decides *which* copy of the registrations
-           answers. Deriving it from something that can change — a runtime flag,
-           a configuration lookup — sends the same registration to the local
-           copy for one `Resolver` and to the process-wide one for the next,
-           producing two live values under one name. Whatever you pass must be
-           constant for the lifetime of the process.
+           is created, and the value decides *which* instance of the
+           registrations answers. Deriving it from something that can change — a
+           runtime flag, a configuration lookup — sends the same registration to
+           the local instance for one `Resolver` and to the process-wide one for
+           the next, producing two live values under one name. Whatever you pass
+           must be constant for the lifetime of the process.
 
          - Parameter once: Cache scope. See the `once` stored property for
            the meaning.
@@ -111,8 +111,8 @@ public struct Registrar: Sendable {
     }
 
     /**
-     The registrations of one generated `Resolver`: its own copy and the
-     process-wide copy shared by every `Resolver` of the container type.
+     The registrations of one generated `Resolver`: its own and the
+     process-wide ones shared by every `Resolver` of the container type.
 
      A registration is reached as a dynamic member, `_registrar.database`, which
      is a key path to the stored property inlined at the call site: it compiles
@@ -123,76 +123,69 @@ public struct Registrar: Sendable {
      hand-written code.
      */
     @dynamicMemberLookup
-    public struct Storage<Registrations: Sendable>: Sendable {
-        @usableFromInline let local: Box
-        @usableFromInline let global: Box
+    public struct Storage<Registrations: AnyObject & Sendable>: Sendable {
+        // References, so that the copies of a `Resolver` – one in every task it starts – share one set of registrations.
+        @usableFromInline let local: Registrations
+        @usableFromInline let global: Registrations
 
         /**
          Creates the storage of a `Resolver`.
 
          - Parameter registrations: Every registration of the container, none of
-           them started. The first `Resolver` of a container type also keeps a
-           copy of them as the process-wide registrations.
+           them started. Those of the first `Resolver` of a container type are
+           also the process-wide registrations.
          */
         @export(implementation)
         public init(_ registrations: Registrations) {
-            self.local = Box(registrations)
-            self.global = .global(registrations)
+            self.local = registrations
+            self.global = Self.global(registrations)
         }
+
+        // Both subscripts are always inlined: the key path literal folds into a field load only at the call site, and on
+        // a class root the inliner would otherwise leave a call that builds the key path at run time.
 
         /**
          The non-throwing registration behind a stored property: the
-         process-wide copy for `Options.once`, the resolver's own otherwise.
+         process-wide one for `Options.once`, the resolver's own otherwise.
          */
+        @inline(always)
         @export(implementation)
         public subscript<R, V>(dynamicMember registration: KeyPath<Registrations, Registration<R, V>>) -> Registration<R, V> {
-            let local = local.registrations[keyPath: registration]
+            let local = local[keyPath: registration]
 
-            return local.once ? global.registrations[keyPath: registration] : local
+            return local.once ? global[keyPath: registration] : local
         }
 
         /**
          The throwing registration behind a stored property: the process-wide
-         copy for `Options.once`, the resolver's own otherwise.
+         one for `Options.once`, the resolver's own otherwise.
          */
+        @inline(always)
         @export(implementation)
         public subscript<R, V>(dynamicMember registration: KeyPath<Registrations, RegistrationThrowable<R, V>>) -> RegistrationThrowable<R, V> {
-            let local = local.registrations[keyPath: registration]
+            let local = local[keyPath: registration]
 
-            return local.once ? global.registrations[keyPath: registration] : local
+            return local.once ? global[keyPath: registration] : local
         }
     }
 }
 
 // MARK: - Registrar.Storage
 extension Registrar.Storage {
-    // A class, so that the copies of a `Resolver` – one in every task it starts – share one set of registrations.
+    // The process-wide registrations of a container type: those of the first `Resolver` that asks.
     @usableFromInline
-    final class Box: Sendable {
-        @usableFromInline let registrations: Registrations
+    static func global(_ registrations: Registrations) -> Registrations {
+        Registrar.globals.withLock { globals in
+            let type = ObjectIdentifier(Registrations.self)
 
-        @usableFromInline
-        init(_ registrations: Registrations) {
-            self.registrations = registrations
-        }
-
-        // The process-wide registrations of a container type, copied from those of the first `Resolver` that asks.
-        @usableFromInline
-        static func global(_ registrations: Registrations) -> Box {
-            Registrar.globals.withLock { globals in
-                let type = ObjectIdentifier(Registrations.self)
-
-                if let global = globals[type] as? Box {
-                    return global
-                }
-
-                let global = Box(registrations)
-
-                // Not `globals[type] = global`: the optional subscript setter also pulls the removal path into the binary.
-                globals.updateValue(global, forKey: type)
-
+            if let global = globals[type] as? Registrations {
                 return global
             }
+
+            // Not `globals[type] = registrations`: the optional subscript setter also pulls the removal path into the binary.
+            globals.updateValue(registrations, forKey: type)
+
+            return registrations
         }
     }
 }

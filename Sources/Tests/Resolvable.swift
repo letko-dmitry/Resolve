@@ -113,7 +113,7 @@ private extension ResolvableTests {
                     )
                 }
 
-                private struct Registrations: Sendable {
+                private final class Registrations: Sendable {
                     let database = Resolve.RegistrationThrowable { (resolver: Resolver) in
                         try await resolver._resolvable.database()
                     }
@@ -163,7 +163,7 @@ private extension ResolvableTests {
                     return .init()
                 }
 
-                private struct Registrations: Sendable {
+                private final class Registrations: Sendable {
                     let warmUp = Resolve.Registration { (resolver: Resolver) in
                         await resolver._resolvable.warmUp()
                     }
@@ -230,7 +230,7 @@ private extension ResolvableTests {
                     )
                 }
 
-                private struct Registrations: Sendable {
+                private final class Registrations: Sendable {
                     let reporter = Resolve.Registration(options: .once) { (resolver: Resolver) in
                         resolver._resolvable.reporter()
                     }
@@ -288,7 +288,7 @@ private extension ResolvableTests {
                     )
                 }
 
-                private struct Registrations: Sendable {
+                private final class Registrations: Sendable {
                     let database = Resolve.Registration { (resolver: Resolver) in
                         resolver._resolvable.database(resolver)
                     }

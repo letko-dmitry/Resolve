@@ -186,7 +186,7 @@ private extension ResolverBuilder {
         }
 
         return """
-        private struct \(registrar.registrations): Sendable {
+        private final class \(registrar.registrations): Sendable {
             \(registrations)
         }
         """
