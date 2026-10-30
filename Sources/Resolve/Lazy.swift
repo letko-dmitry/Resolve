@@ -49,6 +49,8 @@ public import os.lock
    own operation.
  */
 public struct Lazy<Value: Sendable>: Sendable {
+    @usableFromInline typealias State = LazyState<@Sendable () -> Value, Value>
+
     @usableFromInline let state: OSAllocatedUnfairLock<State>
     
     /**
@@ -71,7 +73,7 @@ public struct Lazy<Value: Sendable>: Sendable {
      
      - Returns: The memoised value.
      */
-    @inlinable
+    @export(implementation)
     public func callAsFunction() -> Value {
         state.withLock { state in
             switch state {
@@ -86,14 +88,5 @@ public struct Lazy<Value: Sendable>: Sendable {
                 return value
             }
         }
-    }
-}
-
-// MARK: - Lazy.State
-extension Lazy {
-    @usableFromInline
-    enum State: Sendable {
-        case loadable(@Sendable () -> Value)
-        case loaded(Value)
     }
 }

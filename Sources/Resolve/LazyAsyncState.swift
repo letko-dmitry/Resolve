@@ -19,7 +19,7 @@ enum LazyAsyncState<Factory: Sendable, Value: Sendable, Failure: Error>: Sendabl
 
 extension LazyAsyncState {
     // Starts the factory's task unless something has started it already.
-    @inlinable
+    @export(implementation)
     mutating func start(_ start: (Factory) -> Task<Value, Failure>) {
         switch self {
         case .resolvable(let factory): self = .started(start(factory))
@@ -30,7 +30,7 @@ extension LazyAsyncState {
     // The value, or the task to await for it. Only the first caller to await the task is told to keep its value, so
     // the state is written once – by that caller, outside the lock, never by the task itself: an executor may run a
     // new task in place, while the lock is still held, and the task taking the lock again would deadlock.
-    @inlinable
+    @export(implementation)
     mutating func resolution(_ start: (Factory) -> Task<Value, Failure>) -> Resolution<Value, Failure> {
         switch self {
         case .resolvable(let factory):
@@ -53,7 +53,7 @@ extension LazyAsyncState {
         }
     }
 
-    @inlinable
+    @export(implementation)
     var value: Value? {
         switch self {
         case .resolvable, .started, .resolving: nil

@@ -45,6 +45,8 @@ public import os.lock
    inside its own factory.
  */
 public struct LazyThrowable<Value: Sendable>: Sendable {
+    @usableFromInline typealias State = LazyState<@Sendable () throws -> Value, Value>
+
     @usableFromInline let state: OSAllocatedUnfairLock<State>
     
     /**
@@ -68,7 +70,7 @@ public struct LazyThrowable<Value: Sendable>: Sendable {
      - Returns: The memoised value.
      - Throws: Whatever the underlying factory throws.
      */
-    @inlinable
+    @export(implementation)
     public func callAsFunction() throws -> Value {
         try state.withLock { state in
             switch state {
@@ -83,14 +85,5 @@ public struct LazyThrowable<Value: Sendable>: Sendable {
                 return value
             }
         }
-    }
-}
-
-// MARK: - LazyThrowable.State
-extension LazyThrowable {
-    @usableFromInline
-    enum State: Sendable {
-        case loadable(@Sendable () throws -> Value)
-        case loaded(Value)
     }
 }

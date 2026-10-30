@@ -61,7 +61,7 @@ public final class LazyAsync<Value: Sendable>: Sendable {
 
     @usableFromInline let state: OSAllocatedUnfairLock<State>
 
-    @inlinable
+    @export(implementation)
     var resolution: Resolution<Value, Never> {
         state.withLock { state in
             state.resolution(Self.task)
@@ -75,7 +75,7 @@ public final class LazyAsync<Value: Sendable>: Sendable {
      in-flight `Task` and return as soon as it produces a value. Subsequent
      accesses skip the `Task` entirely and return the cached value.
      */
-    @inlinable
+    @export(implementation)
     public var value: Value {
         get async {
             switch resolution {
@@ -120,7 +120,7 @@ public final class LazyAsync<Value: Sendable>: Sendable {
      never waits. Useful when you want to read the value if it is ready
      without forcing resolution from a synchronous context.
      */
-    @inlinable
+    @export(implementation)
     public var valueIfResolved: Value? {
         state.withLock { state in
             state.value
@@ -133,8 +133,14 @@ public final class LazyAsync<Value: Sendable>: Sendable {
      - Parameter resolve: The closure that produces the value on the first
        `await`. Captured `@Sendable`. The closure runs at most once.
      */
-    public init(_ resolve: @Sendable @escaping () async -> Value) {
-        state = .init(initialState: .resolvable(resolve))
+    public convenience init(_ resolve: @Sendable @escaping () async -> Value) {
+        self.init(state: .init(initialState: .resolvable(resolve)))
+    }
+
+    // A class's vtable keeps its designated initializers, final or not, so every app that links Resolve keeps this one:
+    // it only stores the lock, and building the lock is left to the convenience initializer, which only its callers keep.
+    private init(state: OSAllocatedUnfairLock<State>) {
+        self.state = state
     }
     
     /**

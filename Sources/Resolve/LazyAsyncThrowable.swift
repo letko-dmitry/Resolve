@@ -84,7 +84,7 @@ public final class LazyAsyncThrowable<Value: Sendable>: Sendable {
 
     @usableFromInline let state: OSAllocatedUnfairLock<State>
 
-    @inlinable
+    @export(implementation)
     var resolution: Resolution<Value, any Error> {
         state.withLock { state in
             state.resolution(Self.task)
@@ -103,7 +103,7 @@ public final class LazyAsyncThrowable<Value: Sendable>: Sendable {
        The error is *cached*: subsequent accesses re-throw it without
        retrying.
      */
-    @inlinable
+    @export(implementation)
     public var value: Value {
         get async throws {
             switch resolution {
@@ -150,7 +150,7 @@ public final class LazyAsyncThrowable<Value: Sendable>: Sendable {
      returning `nil` and the cached error remains accessible only through
      `value` / `resolve()`.
      */
-    @inlinable
+    @export(implementation)
     public var valueIfResolved: Value? {
         state.withLock { state in
             state.value
@@ -165,8 +165,13 @@ public final class LazyAsyncThrowable<Value: Sendable>: Sendable {
        `try await`. Captured `@Sendable`. The closure runs at most once;
        any error it throws is cached and re-thrown to subsequent callers.
      */
-    public init(_ resolve: @Sendable @escaping () async throws -> Value) {
-        state = .init(initialState: .resolvable(resolve))
+    public convenience init(_ resolve: @Sendable @escaping () async throws -> Value) {
+        self.init(state: .init(initialState: .resolvable(resolve)))
+    }
+
+    // Only stores the lock, for the same reason as `LazyAsync.init(state:)`.
+    private init(state: OSAllocatedUnfairLock<State>) {
+        self.state = state
     }
     
     /**
