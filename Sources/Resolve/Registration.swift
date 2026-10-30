@@ -73,14 +73,13 @@ public struct Registration<R: Sendable, V: Sendable>: Sendable {
         case .value(let value):
             return value
 
-        case .task(let task):
-            return await task.value
-
-        case .keep(let task):
+        case .task(let task, let keep):
             let value = await task.value
 
-            state.withLock { state in
-                state = .resolved(value)
+            if keep {
+                state.withLock { state in
+                    state = .resolved(value)
+                }
             }
 
             return value

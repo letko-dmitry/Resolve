@@ -38,15 +38,15 @@ extension LazyAsyncState {
 
             self = .resolving(task)
 
-            return .keep(task)
+            return .task(task, keep: true)
 
         case .started(let task):
             self = .resolving(task)
 
-            return .keep(task)
+            return .task(task, keep: true)
 
         case .resolving(let task):
-            return .task(task)
+            return .task(task, keep: false)
 
         case .resolved(let value):
             return .value(value)

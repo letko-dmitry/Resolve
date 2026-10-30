@@ -65,14 +65,13 @@ public struct RegistrationThrowable<R: Sendable, V: Sendable>: Sendable {
         case .value(let value):
             return value
 
-        case .task(let task):
-            return try await task.value
-
-        case .keep(let task):
+        case .task(let task, let keep):
             let value = try await task.value
 
-            state.withLock { state in
-                state = .resolved(value)
+            if keep {
+                state.withLock { state in
+                    state = .resolved(value)
+                }
             }
 
             return value
