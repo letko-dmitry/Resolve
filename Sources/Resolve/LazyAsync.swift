@@ -83,7 +83,7 @@ public final class LazyAsync<Value: Sendable>: Sendable {
                 return value
 
             case .task(let task, let keep):
-                let value = await task.value
+                let value = await Resolution.value(of: task)
 
                 if keep {
                     state.withLock { state in
