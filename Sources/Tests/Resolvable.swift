@@ -100,7 +100,9 @@ private extension ResolvableTests {
             }
 
             struct Resolver: Sendable {
-                private let _registrar = Resolve.Registrar.Storage(Registrations())
+                private let _registrar = Resolve.Registrar.Storage {
+                    Registrations()
+                }
                 private let _resolvable: Container
 
                 var database: Database {
@@ -151,7 +153,9 @@ private extension ResolvableTests {
             }
 
             struct Resolver: Sendable {
-                private let _registrar = Resolve.Registrar.Storage(Registrations())
+                private let _registrar = Resolve.Registrar.Storage {
+                    Registrations()
+                }
                 private let _resolvable: Container
 
                 init(_ resolvable: Container) {
@@ -210,7 +214,9 @@ private extension ResolvableTests {
             }
 
             struct Resolver: Sendable {
-                private let _registrar = Resolve.Registrar.Storage(Registrations())
+                private let _registrar = Resolve.Registrar.Storage {
+                    Registrations()
+                }
                 private let _resolvable: Container
 
                 var reporter: Reporter {
@@ -281,7 +287,9 @@ private extension ResolvableTests {
             }
 
             struct Resolver: Sendable {
-                private let _registrar = Resolve.Registrar.Storage(Registrations())
+                private let _registrar = Resolve.Registrar.Storage {
+                    Registrations()
+                }
                 private let _resolvable: Container
 
                 var reporter: Reporter {
@@ -346,7 +354,9 @@ private extension ResolvableTests {
             }
 
             struct Resolver: Sendable {
-                private let _registrar = Resolve.Registrar.Storage(Registrations())
+                private let _registrar = Resolve.Registrar.Storage {
+                    Registrations()
+                }
                 private let _resolvable: Container
 
                 var database: Database {

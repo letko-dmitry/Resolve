@@ -57,7 +57,7 @@ private extension ResolverBuilder {
     func registrarVariable() -> MemberBlockItemListSyntax {
         guard !registrables.all.isEmpty || !performables.all.isEmpty else { return "" }
 
-        return "private let _\(registrar.name) = \(registrar.type).Storage(\(registrar.registrations)())"
+        return "private let _\(registrar.name) = \(registrar.type).Storage { \(registrar.registrations)() }"
     }
 
     func containerVariable() -> MemberBlockItemListSyntax {

@@ -26,6 +26,29 @@ final class RuntimeTests: XCTestCase {
         XCTAssertTrue(resolved.local === local)
     }
 
+    // `Released` is resolved nowhere else, so this resolver is its first.
+    func testFirstResolverReleasesItsDefaultValues() async {
+        weak var local: Node?
+        weak var shared: Node?
+
+        do {
+            let resolved = await Released.Resolver(.init()).resolve()
+
+            local = resolved.local
+            shared = resolved.shared
+        }
+
+        // The tasks that built the values let go of their resolver just after handing the values over.
+        let deadline = ContinuousClock.now + .seconds(5)
+
+        while local != nil, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(1))
+        }
+
+        XCTAssertNil(local)
+        XCTAssertNotNil(shared)
+    }
+
     // A task that runs in place – inside the lock its creator holds – must not take that lock again.
     func testTasksThatRunInPlace() async throws {
         guard #available(macOS 15, iOS 18, watchOS 11, tvOS 18, visionOS 2, *) else {
@@ -100,6 +123,19 @@ private extension RuntimeTests {
             _ = await resolver.shared
 
             return Node()
+        }
+    }
+
+    @Resolvable
+    struct Released {
+        @Register(options: .once)
+        func shared() -> Node {
+            Node()
+        }
+
+        @Register
+        func local() -> Node {
+            Node()
         }
     }
 

@@ -20,9 +20,9 @@ import os.lock
 
  - a *local* one, used by `Options.default` registrations and tied to the
    lifetime of the `Resolver`;
- - a *global* one shared by every `Resolver` of the same container type, the
-   local one of the first of them, used by registrations that opt into
-   `Options.once`.
+ - a *global* one shared by every `Resolver` of the same container type,
+   created alongside the first of them and used by registrations that opt
+   into `Options.once`.
 
  The combination guarantees that:
 
@@ -138,22 +138,22 @@ public struct Registrar: Sendable {
         public let local: Registrations
 
         /**
-         The process-wide registrations of the container type – the local ones
-         of its first `Resolver` – where those with `Options.once` live.
+         The process-wide registrations of the container type, created
+         alongside its first `Resolver`, where those with `Options.once` live.
          */
         public let global: Registrations
 
         /**
          Creates the storage of a `Resolver`.
 
-         - Parameter registrations: Every registration of the container, none of
-           them started. Those of the first `Resolver` of a container type are
-           also the process-wide registrations.
+         - Parameter make: Creates every registration of the container, none of
+           them started: the resolver's own, and – for the first `Resolver` of a
+           container type – the process-wide ones as well.
          */
         @export(implementation)
-        public init(_ registrations: Registrations) {
-            self.local = registrations
-            self.global = Self.global(registrations)
+        public init(_ make: () -> Registrations) {
+            self.local = make()
+            self.global = Self.processWide(make)
         }
 
         // Both subscripts are always inlined: the key path literal folds into a field load only at the call site, and on
@@ -187,20 +187,27 @@ public struct Registrar: Sendable {
 
 // MARK: - Registrar.Storage
 extension Registrar.Storage {
-    // The process-wide registrations of a container type: those of the first `Resolver` that asks.
+    // Made outside the lock: `make` evaluates the `options:` expressions, and one that creates a `Resolver` would take
+    // the lock again. When first `Resolver`s race, the registrations that are not stored have never been started.
     @usableFromInline
-    static func global(_ registrations: Registrations) -> Registrations {
-        Registrar.globals.withLock { globals in
-            let type = ObjectIdentifier(Registrations.self)
+    static func processWide(_ make: () -> Registrations) -> Registrations {
+        let type = ObjectIdentifier(Registrations.self)
 
-            if let global = globals[type] as? Registrations {
-                return global
+        if let stored = Registrar.globals.withLock({ globals in globals[type] }) as? Registrations {
+            return stored
+        }
+
+        let made = make()
+
+        return Registrar.globals.withLock { globals in
+            if let stored = globals[type] as? Registrations {
+                return stored
             }
 
-            // Not `globals[type] = registrations`: the optional subscript setter also pulls the removal path into the binary.
-            globals.updateValue(registrations, forKey: type)
+            // Not `globals[type] = made`: the optional subscript setter also pulls the removal path into the binary.
+            globals.updateValue(made, forKey: type)
 
-            return registrations
+            return made
         }
     }
 }

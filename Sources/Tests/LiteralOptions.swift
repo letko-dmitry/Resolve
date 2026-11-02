@@ -59,7 +59,9 @@ private extension LiteralOptionsTests {
             }
 
             struct Resolver: Sendable {
-                private let _registrar = Resolve.Registrar.Storage(Registrations())
+                private let _registrar = Resolve.Registrar.Storage {
+                    Registrations()
+                }
                 private let _resolvable: Container
 
                 var reporter: Reporter {
